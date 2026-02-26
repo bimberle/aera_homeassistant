@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aera Konto",
+        "description": "Gib deine Aera-Zugangsdaten ein.",
+        "data": {
+          "email": "E-Mail",
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zu Aera fehlgeschlagen. Bitte überprüfe deine Zugangsdaten.",
+      "no_devices": "Keine Aera-Geräte in deinem Konto gefunden."
+    },
+    "abort": {
+      "already_configured": "Dieses Konto ist bereits konfiguriert."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "intensity": {
+        "name": "Intensität"
+      },
+      "fill_level": {
+        "name": "Füllstand"
+      },
+      "session_time_remaining": {
+        "name": "Session-Restzeit"
+      },
+      "fragrance": {
+        "name": "Duft"
+      },
+      "pump_lifetime": {
+        "name": "Pump-Lebensdauer"
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+start_session:
+  name: Start Session
+  description: Start a timed fragrance session.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+  fields:
+    duration:
+      name: Duration
+      description: Session duration
+      required: true
+      selector:
+        select:
+          options:
+            - label: "2 hours"
+              value: "2h"
+            - label: "4 hours"
+              value: "4h"
+            - label: "8 hours"
+              value: "8h"
+
+stop_session:
+  name: Stop Session
+  description: Stop the current fragrance session.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+
+set_fragrance:
+  name: Set Fragrance
+  description: Set the fragrance for aeraMini devices.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+  fields:
+    fragrance_id:
+      name: Fragrance ID
+      description: The 3-letter fragrance identifier (e.g., "IDG" for Indigo)
+      required: true
+      selector:
+        text:

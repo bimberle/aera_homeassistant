@@ -1,0 +1,15 @@
+# Aera Home Assistant Integration - Development Dependencies
+
+# Async HTTP client
+aiohttp>=3.8.0
+
+# Home Assistant (for integration development)
+# homeassistant>=2024.1.0
+
+# Development & Testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+python-dotenv>=1.0.0
+
+# For extracting credentials (optional)
+# mitmproxy>=10.0.0

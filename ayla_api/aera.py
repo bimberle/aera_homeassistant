@@ -9,11 +9,11 @@ Provides a simple interface to control Aera diffusers:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 from enum import IntEnum
 import logging
 
-from .client import AylaApi, AylaApiError
+from .client import AylaApi, AylaApiError, AylaSchedule, AylaScheduleAction
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -350,6 +350,183 @@ class AeraDevice:
         if result:
             self._room_name = room_name
         return result
+
+    # =========================================================================
+    # Schedule Management
+    # =========================================================================
+
+    async def get_schedules(self) -> List[AylaSchedule]:
+        """
+        Get all schedules for this device.
+        
+        Returns:
+            List of AylaSchedule objects with their actions.
+        """
+        _LOGGER.info(f"Getting schedules for device {self._dsn}")
+        return await self._api.get_schedules(self._dsn)
+    
+    async def create_schedule(
+        self,
+        name: str,
+        start_time: str = "08:00",
+        end_time: str = "22:00",
+        days: List[int] = None,
+        intensity: int = 5,
+        power_on: bool = True,
+        active: bool = True,
+    ) -> AylaSchedule:
+        """
+        Create a new schedule for this device.
+        
+        Args:
+            name: Display name for the schedule
+            start_time: Start time in HH:MM format (24h)
+            end_time: End time in HH:MM format (24h)
+            days: Days of week (1=Sunday, 2=Monday, ..., 7=Saturday)
+                  Default is Monday-Friday [2,3,4,5,6]
+            intensity: Intensity level 1-10
+            power_on: Whether to turn on at start (True) or off (False)
+            active: Whether the schedule is active
+            
+        Returns:
+            Created AylaSchedule with server-assigned key.
+        """
+        if days is None:
+            days = [2, 3, 4, 5, 6]  # Monday-Friday
+        
+        # Convert HH:MM to HH:MM:SS
+        start_time_full = f"{start_time}:00" if len(start_time) == 5 else start_time
+        end_time_full = f"{end_time}:00" if len(end_time) == 5 else end_time
+        
+        # Create unique name for API
+        import time
+        unique_name = f"aera_schedule_{int(time.time())}"
+        
+        schedule = AylaSchedule(
+            name=unique_name,
+            display_name=name,
+            active=active,
+            start_time_each_day=start_time_full,
+            end_time_each_day=end_time_full,
+            days_of_week=days,
+            actions=[
+                # Power on action at start
+                AylaScheduleAction(
+                    name="set_power_state",
+                    base_type="integer",
+                    value="1" if power_on else "0",
+                    at_start=True,
+                    at_end=False,
+                ),
+                # Set intensity at start
+                AylaScheduleAction(
+                    name="set_intensity_manual",
+                    base_type="integer",
+                    value=str(intensity),
+                    at_start=True,
+                    at_end=False,
+                ),
+                # Power off action at end
+                AylaScheduleAction(
+                    name="set_power_state",
+                    base_type="integer",
+                    value="0",
+                    at_start=False,
+                    at_end=True,
+                ),
+            ]
+        )
+        
+        _LOGGER.info(f"Creating schedule '{name}' for device {self._dsn}")
+        return await self._api.create_schedule(self._dsn, schedule)
+    
+    async def update_schedule(
+        self,
+        schedule_key: int,
+        name: str = None,
+        start_time: str = None,
+        end_time: str = None,
+        days: List[int] = None,
+        intensity: int = None,
+        active: bool = None,
+    ) -> AylaSchedule:
+        """
+        Update an existing schedule.
+        
+        Args:
+            schedule_key: The schedule key to update
+            name: New display name (optional)
+            start_time: New start time in HH:MM format (optional)
+            end_time: New end time in HH:MM format (optional)
+            days: New days of week (optional)
+            intensity: New intensity level (optional)
+            active: New active state (optional)
+            
+        Returns:
+            Updated AylaSchedule.
+        """
+        # First fetch the existing schedule
+        schedules = await self.get_schedules()
+        schedule = None
+        for s in schedules:
+            if s.key == schedule_key:
+                schedule = s
+                break
+        
+        if not schedule:
+            raise AylaApiError(f"Schedule {schedule_key} not found")
+        
+        # Update fields
+        if name is not None:
+            schedule.display_name = name
+        if start_time is not None:
+            schedule.start_time_each_day = f"{start_time}:00" if len(start_time) == 5 else start_time
+        if end_time is not None:
+            schedule.end_time_each_day = f"{end_time}:00" if len(end_time) == 5 else end_time
+        if days is not None:
+            schedule.days_of_week = days
+        if active is not None:
+            schedule.active = active
+        
+        # Update the schedule itself
+        updated = await self._api.update_schedule(schedule)
+        
+        # Update intensity action if specified
+        if intensity is not None:
+            for action in schedule.actions:
+                if action.name == "set_intensity_manual" and action.key:
+                    action.value = str(intensity)
+                    await self._api.update_schedule_action(action)
+                    break
+        
+        _LOGGER.info(f"Updated schedule {schedule_key} for device {self._dsn}")
+        return updated
+    
+    async def delete_schedule(self, schedule_key: int) -> bool:
+        """
+        Delete a schedule.
+        
+        Args:
+            schedule_key: The schedule key to delete
+            
+        Returns:
+            True if successful.
+        """
+        _LOGGER.info(f"Deleting schedule {schedule_key} for device {self._dsn}")
+        return await self._api.delete_schedule(schedule_key)
+    
+    async def toggle_schedule(self, schedule_key: int, active: bool) -> AylaSchedule:
+        """
+        Enable or disable a schedule.
+        
+        Args:
+            schedule_key: The schedule key to toggle
+            active: True to enable, False to disable
+            
+        Returns:
+            Updated AylaSchedule.
+        """
+        return await self.update_schedule(schedule_key, active=active)
 
 
 class AeraApi:

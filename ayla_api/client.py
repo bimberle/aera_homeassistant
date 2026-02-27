@@ -8,8 +8,8 @@ through the Ayla Networks IoT platform.
 import aiohttp
 import asyncio
 import json
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, List
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,6 +41,107 @@ class DeviceMetadata:
     room_name: str
     ordered_position: int
     schedule_order: list
+
+
+@dataclass
+class AylaScheduleAction:
+    """A single action within a schedule."""
+    name: str                    # Property name to change
+    base_type: str               # "integer", "boolean", etc.
+    value: str                   # Value to set
+    type: str = "property"       # "property" for property-based actions
+    active: bool = True
+    at_start: bool = True        # Execute at schedule start
+    at_end: bool = False         # Execute at schedule end
+    in_range: bool = False       # Execute while in range
+    key: Optional[int] = None    # Server-assigned key (None for new actions)
+
+    def to_dict(self) -> dict:
+        """Convert to API format."""
+        return {
+            "name": self.name,
+            "base_type": self.base_type,
+            "value": self.value,
+            "type": self.type,
+            "active": self.active,
+            "at_start": self.at_start,
+            "at_end": self.at_end,
+            "in_range": self.in_range,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AylaScheduleAction":
+        """Create from API response."""
+        return cls(
+            name=data.get("name", ""),
+            base_type=data.get("base_type", "integer"),
+            value=str(data.get("value", "")),
+            type=data.get("type", "property"),
+            active=data.get("active", True),
+            at_start=data.get("at_start", True),
+            at_end=data.get("at_end", False),
+            in_range=data.get("in_range", False),
+            key=data.get("key"),
+        )
+
+
+@dataclass
+class AylaSchedule:
+    """Schedule for automating device actions."""
+    name: str
+    display_name: str
+    active: bool = True
+    start_time_each_day: str = "08:00:00"    # HH:MM:SS format
+    end_time_each_day: str = "22:00:00"      # HH:MM:SS format
+    days_of_week: List[int] = field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7])  # 1=Sunday, 7=Saturday
+    utc: bool = False
+    direction: str = "input"
+    start_date: Optional[str] = None         # YYYY-MM-DD
+    end_date: Optional[str] = None           # YYYY-MM-DD
+    duration: int = 0
+    interval: int = 0
+    key: Optional[int] = None                # Server-assigned key
+    actions: List[AylaScheduleAction] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Convert to API format."""
+        data = {
+            "name": self.name,
+            "display_name": self.display_name,
+            "active": self.active,
+            "start_time_each_day": self.start_time_each_day,
+            "end_time_each_day": self.end_time_each_day,
+            "days_of_week": self.days_of_week,
+            "utc": self.utc,
+            "direction": self.direction,
+            "duration": self.duration,
+            "interval": self.interval,
+        }
+        if self.start_date:
+            data["start_date"] = self.start_date
+        if self.end_date:
+            data["end_date"] = self.end_date
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict, actions: List[AylaScheduleAction] = None) -> "AylaSchedule":
+        """Create from API response."""
+        return cls(
+            name=data.get("name", ""),
+            display_name=data.get("display_name", data.get("name", "")),
+            active=data.get("active", True),
+            start_time_each_day=data.get("start_time_each_day", "08:00:00"),
+            end_time_each_day=data.get("end_time_each_day", "22:00:00"),
+            days_of_week=data.get("days_of_week", [1, 2, 3, 4, 5, 6, 7]),
+            utc=data.get("utc", False),
+            direction=data.get("direction", "input"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date"),
+            duration=data.get("duration", 0),
+            interval=data.get("interval", 0),
+            key=data.get("key"),
+            actions=actions or [],
+        )
 
 
 @dataclass
@@ -414,6 +515,275 @@ class AylaApi:
                     raise AylaApiError(f"Failed to create device metadata: {resp.status} - {text}")
         
         _LOGGER.info(f"Successfully updated metadata for device {dsn}")
+        return True
+
+    # =========================================================================
+    # Schedule API
+    # =========================================================================
+    
+    async def get_schedules(self, dsn: str) -> List[AylaSchedule]:
+        """
+        Get all schedules for a device.
+        
+        Args:
+            dsn: Device Serial Number
+            
+        Returns:
+            List of AylaSchedule objects.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{dsn}/schedules.json"
+        
+        _LOGGER.debug(f"Fetching schedules for device {dsn}")
+        
+        async with session.get(url, headers=self._get_headers()) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise AylaApiError(f"Failed to get schedules: {resp.status} - {text}")
+            
+            data = await resp.json()
+        
+        schedules = []
+        for item in data:
+            schedule_data = item.get("schedule", {})
+            schedule = AylaSchedule.from_dict(schedule_data)
+            
+            # Fetch actions for each schedule
+            if schedule.key:
+                try:
+                    actions = await self.get_schedule_actions(schedule.key)
+                    schedule.actions = actions
+                except AylaApiError as e:
+                    _LOGGER.warning(f"Failed to fetch actions for schedule {schedule.key}: {e}")
+            
+            schedules.append(schedule)
+        
+        _LOGGER.info(f"Found {len(schedules)} schedules for device {dsn}")
+        return schedules
+    
+    async def get_schedule_actions(self, schedule_key: int) -> List[AylaScheduleAction]:
+        """
+        Get all actions for a schedule.
+        
+        Args:
+            schedule_key: Schedule key from the server
+            
+        Returns:
+            List of AylaScheduleAction objects.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule_key}/schedule_actions.json"
+        
+        _LOGGER.debug(f"Fetching actions for schedule {schedule_key}")
+        
+        async with session.get(url, headers=self._get_headers()) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise AylaApiError(f"Failed to get schedule actions: {resp.status} - {text}")
+            
+            data = await resp.json()
+        
+        actions = []
+        for item in data:
+            action_data = item.get("schedule_action", {})
+            actions.append(AylaScheduleAction.from_dict(action_data))
+        
+        return actions
+    
+    async def create_schedule(self, dsn: str, schedule: AylaSchedule) -> AylaSchedule:
+        """
+        Create a new schedule for a device.
+        
+        Args:
+            dsn: Device Serial Number
+            schedule: AylaSchedule object to create
+            
+        Returns:
+            Created AylaSchedule with server-assigned key.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{dsn}/schedules.json"
+        
+        payload = {"schedule": schedule.to_dict()}
+        
+        _LOGGER.debug(f"Creating schedule '{schedule.display_name}' for device {dsn}")
+        
+        async with session.post(url, json=payload, headers=self._get_headers()) as resp:
+            if resp.status not in (200, 201):
+                text = await resp.text()
+                raise AylaApiError(f"Failed to create schedule: {resp.status} - {text}")
+            
+            data = await resp.json()
+        
+        created_schedule = AylaSchedule.from_dict(data.get("schedule", {}))
+        
+        # Create actions for the schedule
+        for action in schedule.actions:
+            created_action = await self.create_schedule_action(created_schedule.key, action)
+            created_schedule.actions.append(created_action)
+        
+        _LOGGER.info(f"Created schedule '{created_schedule.display_name}' with key {created_schedule.key}")
+        return created_schedule
+    
+    async def create_schedule_action(
+        self, schedule_key: int, action: AylaScheduleAction
+    ) -> AylaScheduleAction:
+        """
+        Create a new action for a schedule.
+        
+        Args:
+            schedule_key: Schedule key from the server
+            action: AylaScheduleAction to create
+            
+        Returns:
+            Created AylaScheduleAction with server-assigned key.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule_key}/schedule_actions.json"
+        
+        payload = {"schedule_action": action.to_dict()}
+        
+        _LOGGER.debug(f"Creating action '{action.name}' for schedule {schedule_key}")
+        
+        async with session.post(url, json=payload, headers=self._get_headers()) as resp:
+            if resp.status not in (200, 201):
+                text = await resp.text()
+                raise AylaApiError(f"Failed to create schedule action: {resp.status} - {text}")
+            
+            data = await resp.json()
+        
+        return AylaScheduleAction.from_dict(data.get("schedule_action", {}))
+    
+    async def update_schedule(self, schedule: AylaSchedule) -> AylaSchedule:
+        """
+        Update an existing schedule.
+        
+        Args:
+            schedule: AylaSchedule with key and updated values
+            
+        Returns:
+            Updated AylaSchedule.
+        """
+        if not schedule.key:
+            raise AylaApiError("Schedule key is required for update")
+        
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule.key}.json"
+        
+        payload = {"schedule": schedule.to_dict()}
+        
+        _LOGGER.debug(f"Updating schedule {schedule.key}")
+        
+        async with session.put(url, json=payload, headers=self._get_headers()) as resp:
+            if resp.status not in (200, 201):
+                text = await resp.text()
+                raise AylaApiError(f"Failed to update schedule: {resp.status} - {text}")
+            
+            data = await resp.json()
+        
+        updated = AylaSchedule.from_dict(data.get("schedule", {}))
+        updated.actions = schedule.actions  # Preserve actions
+        
+        _LOGGER.info(f"Updated schedule {schedule.key}")
+        return updated
+    
+    async def delete_schedule(self, schedule_key: int) -> bool:
+        """
+        Delete a schedule.
+        
+        Args:
+            schedule_key: Schedule key to delete
+            
+        Returns:
+            True if successful.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule_key}.json"
+        
+        _LOGGER.debug(f"Deleting schedule {schedule_key}")
+        
+        async with session.delete(url, headers=self._get_headers()) as resp:
+            if resp.status not in (200, 204):
+                text = await resp.text()
+                raise AylaApiError(f"Failed to delete schedule: {resp.status} - {text}")
+        
+        _LOGGER.info(f"Deleted schedule {schedule_key}")
+        return True
+    
+    async def update_schedule_action(self, action: AylaScheduleAction) -> AylaScheduleAction:
+        """
+        Update an existing schedule action.
+        
+        Args:
+            action: AylaScheduleAction with key and updated values
+            
+        Returns:
+            Updated AylaScheduleAction.
+        """
+        if not action.key:
+            raise AylaApiError("Action key is required for update")
+        
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/schedule_actions/{action.key}.json"
+        
+        payload = {"schedule_action": action.to_dict()}
+        
+        _LOGGER.debug(f"Updating schedule action {action.key}")
+        
+        async with session.put(url, json=payload, headers=self._get_headers()) as resp:
+            if resp.status not in (200, 201):
+                text = await resp.text()
+                raise AylaApiError(f"Failed to update schedule action: {resp.status} - {text}")
+            
+            data = await resp.json()
+        
+        return AylaScheduleAction.from_dict(data.get("schedule_action", {}))
+    
+    async def delete_schedule_action(self, action_key: int) -> bool:
+        """
+        Delete a schedule action.
+        
+        Args:
+            action_key: Action key to delete
+            
+        Returns:
+            True if successful.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_ADS_SERVICE}/apiv1/schedule_actions/{action_key}.json"
+        
+        _LOGGER.debug(f"Deleting schedule action {action_key}")
+        
+        async with session.delete(url, headers=self._get_headers()) as resp:
+            if resp.status not in (200, 204):
+                text = await resp.text()
+                raise AylaApiError(f"Failed to delete schedule action: {resp.status} - {text}")
+        
+        _LOGGER.info(f"Deleted schedule action {action_key}")
         return True
 
 

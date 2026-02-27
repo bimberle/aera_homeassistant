@@ -21,10 +21,22 @@ SERVICE_START_SESSION = "start_session"
 SERVICE_STOP_SESSION = "stop_session"
 SERVICE_SET_FRAGRANCE = "set_fragrance"
 SERVICE_SET_ROOM_NAME = "set_room_name"
+SERVICE_GET_SCHEDULES = "get_schedules"
+SERVICE_CREATE_SCHEDULE = "create_schedule"
+SERVICE_UPDATE_SCHEDULE = "update_schedule"
+SERVICE_DELETE_SCHEDULE = "delete_schedule"
+SERVICE_TOGGLE_SCHEDULE = "toggle_schedule"
 
 ATTR_DURATION = "duration"
 ATTR_FRAGRANCE_ID = "fragrance_id"
 ATTR_ROOM_NAME = "room_name"
+ATTR_SCHEDULE_KEY = "schedule_key"
+ATTR_SCHEDULE_NAME = "schedule_name"
+ATTR_START_TIME = "start_time"
+ATTR_END_TIME = "end_time"
+ATTR_DAYS = "days"
+ATTR_INTENSITY = "intensity"
+ATTR_ACTIVE = "active"
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
@@ -91,6 +103,102 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             await device.set_room_name(room_name)
             _LOGGER.info("Set room name '%s' on %s", room_name, device.name)
 
+    async def async_get_schedules(call: ServiceCall) -> dict:
+        """Get all schedules for a device."""
+        devices = await _get_devices_from_call(call)
+        result = {}
+        for device in devices:
+            schedules = await device.get_schedules()
+            result[device.dsn] = [
+                {
+                    "key": s.key,
+                    "name": s.display_name,
+                    "active": s.active,
+                    "start_time": s.start_time_each_day[:5],  # HH:MM
+                    "end_time": s.end_time_each_day[:5],      # HH:MM
+                    "days": s.days_of_week,
+                    "actions": [
+                        {"name": a.name, "value": a.value}
+                        for a in s.actions
+                    ],
+                }
+                for s in schedules
+            ]
+            _LOGGER.info("Got %d schedules for %s", len(schedules), device.name)
+        return result
+
+    async def async_create_schedule(call: ServiceCall) -> dict:
+        """Create a new schedule."""
+        schedule_name = call.data[ATTR_SCHEDULE_NAME]
+        start_time = call.data.get(ATTR_START_TIME, "08:00")
+        end_time = call.data.get(ATTR_END_TIME, "22:00")
+        days = call.data.get(ATTR_DAYS, [2, 3, 4, 5, 6])  # Mon-Fri
+        intensity = call.data.get(ATTR_INTENSITY, 5)
+        active = call.data.get(ATTR_ACTIVE, True)
+        
+        devices = await _get_devices_from_call(call)
+        result = {}
+        for device in devices:
+            schedule = await device.create_schedule(
+                name=schedule_name,
+                start_time=start_time,
+                end_time=end_time,
+                days=days,
+                intensity=intensity,
+                active=active,
+            )
+            result[device.dsn] = {"key": schedule.key, "name": schedule.display_name}
+            _LOGGER.info("Created schedule '%s' on %s", schedule_name, device.name)
+        return result
+
+    async def async_update_schedule(call: ServiceCall) -> dict:
+        """Update an existing schedule."""
+        schedule_key = call.data[ATTR_SCHEDULE_KEY]
+        schedule_name = call.data.get(ATTR_SCHEDULE_NAME)
+        start_time = call.data.get(ATTR_START_TIME)
+        end_time = call.data.get(ATTR_END_TIME)
+        days = call.data.get(ATTR_DAYS)
+        intensity = call.data.get(ATTR_INTENSITY)
+        active = call.data.get(ATTR_ACTIVE)
+        
+        devices = await _get_devices_from_call(call)
+        result = {}
+        for device in devices:
+            schedule = await device.update_schedule(
+                schedule_key=schedule_key,
+                name=schedule_name,
+                start_time=start_time,
+                end_time=end_time,
+                days=days,
+                intensity=intensity,
+                active=active,
+            )
+            result[device.dsn] = {"key": schedule.key, "name": schedule.display_name}
+            _LOGGER.info("Updated schedule %d on %s", schedule_key, device.name)
+        return result
+
+    async def async_delete_schedule(call: ServiceCall) -> None:
+        """Delete a schedule."""
+        schedule_key = call.data[ATTR_SCHEDULE_KEY]
+        
+        devices = await _get_devices_from_call(call)
+        for device in devices:
+            await device.delete_schedule(schedule_key)
+            _LOGGER.info("Deleted schedule %d on %s", schedule_key, device.name)
+
+    async def async_toggle_schedule(call: ServiceCall) -> dict:
+        """Enable or disable a schedule."""
+        schedule_key = call.data[ATTR_SCHEDULE_KEY]
+        active = call.data[ATTR_ACTIVE]
+        
+        devices = await _get_devices_from_call(call)
+        result = {}
+        for device in devices:
+            schedule = await device.toggle_schedule(schedule_key, active)
+            result[device.dsn] = {"key": schedule.key, "active": schedule.active}
+            _LOGGER.info("Toggled schedule %d to %s on %s", schedule_key, active, device.name)
+        return result
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_START_SESSION,
@@ -138,6 +246,86 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         ),
     )
 
+    # Schedule services
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_SCHEDULES,
+        async_get_schedules,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CREATE_SCHEDULE,
+        async_create_schedule,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+                vol.Required(ATTR_SCHEDULE_NAME): cv.string,
+                vol.Optional(ATTR_START_TIME, default="08:00"): cv.string,
+                vol.Optional(ATTR_END_TIME, default="22:00"): cv.string,
+                vol.Optional(ATTR_DAYS, default=[2, 3, 4, 5, 6]): vol.All(
+                    cv.ensure_list, [vol.In([1, 2, 3, 4, 5, 6, 7])]
+                ),
+                vol.Optional(ATTR_INTENSITY, default=5): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=10)
+                ),
+                vol.Optional(ATTR_ACTIVE, default=True): cv.boolean,
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UPDATE_SCHEDULE,
+        async_update_schedule,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+                vol.Required(ATTR_SCHEDULE_KEY): vol.Coerce(int),
+                vol.Optional(ATTR_SCHEDULE_NAME): cv.string,
+                vol.Optional(ATTR_START_TIME): cv.string,
+                vol.Optional(ATTR_END_TIME): cv.string,
+                vol.Optional(ATTR_DAYS): vol.All(
+                    cv.ensure_list, [vol.In([1, 2, 3, 4, 5, 6, 7])]
+                ),
+                vol.Optional(ATTR_INTENSITY): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=10)
+                ),
+                vol.Optional(ATTR_ACTIVE): cv.boolean,
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DELETE_SCHEDULE,
+        async_delete_schedule,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+                vol.Required(ATTR_SCHEDULE_KEY): vol.Coerce(int),
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_TOGGLE_SCHEDULE,
+        async_toggle_schedule,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+                vol.Required(ATTR_SCHEDULE_KEY): vol.Coerce(int),
+                vol.Required(ATTR_ACTIVE): cv.boolean,
+            }
+        ),
+    )
+
 
 async def async_unload_services(hass: HomeAssistant) -> None:
     """Unload services."""
@@ -145,3 +333,8 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     hass.services.async_remove(DOMAIN, SERVICE_STOP_SESSION)
     hass.services.async_remove(DOMAIN, SERVICE_SET_FRAGRANCE)
     hass.services.async_remove(DOMAIN, SERVICE_SET_ROOM_NAME)
+    hass.services.async_remove(DOMAIN, SERVICE_GET_SCHEDULES)
+    hass.services.async_remove(DOMAIN, SERVICE_CREATE_SCHEDULE)
+    hass.services.async_remove(DOMAIN, SERVICE_UPDATE_SCHEDULE)
+    hass.services.async_remove(DOMAIN, SERVICE_DELETE_SCHEDULE)
+    hass.services.async_remove(DOMAIN, SERVICE_TOGGLE_SCHEDULE)

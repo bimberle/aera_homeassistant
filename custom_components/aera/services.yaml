@@ -57,3 +57,187 @@ set_room_name:
       required: true
       selector:
         text:
+
+get_schedules:
+  name: Get Schedules
+  description: Get all schedules for an Aera device.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+
+create_schedule:
+  name: Create Schedule
+  description: Create a new schedule for an Aera device.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+  fields:
+    schedule_name:
+      name: Schedule Name
+      description: Display name for the schedule
+      required: true
+      selector:
+        text:
+    start_time:
+      name: Start Time
+      description: Time when the schedule starts (HH:MM format)
+      required: false
+      default: "08:00"
+      selector:
+        time:
+    end_time:
+      name: End Time
+      description: Time when the schedule ends (HH:MM format)
+      required: false
+      default: "22:00"
+      selector:
+        time:
+    days:
+      name: Days of Week
+      description: Days when the schedule is active (1=Sunday, 2=Monday, ..., 7=Saturday)
+      required: false
+      default: [2, 3, 4, 5, 6]
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: "Sunday"
+              value: 1
+            - label: "Monday"
+              value: 2
+            - label: "Tuesday"
+              value: 3
+            - label: "Wednesday"
+              value: 4
+            - label: "Thursday"
+              value: 5
+            - label: "Friday"
+              value: 6
+            - label: "Saturday"
+              value: 7
+    intensity:
+      name: Intensity
+      description: Fragrance intensity level (1-10)
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 10
+    active:
+      name: Active
+      description: Whether the schedule is active
+      required: false
+      default: true
+      selector:
+        boolean:
+
+update_schedule:
+  name: Update Schedule
+  description: Update an existing schedule.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+  fields:
+    schedule_key:
+      name: Schedule Key
+      description: The unique key of the schedule to update
+      required: true
+      selector:
+        number:
+          mode: box
+    schedule_name:
+      name: Schedule Name
+      description: New display name for the schedule
+      required: false
+      selector:
+        text:
+    start_time:
+      name: Start Time
+      description: New start time (HH:MM format)
+      required: false
+      selector:
+        time:
+    end_time:
+      name: End Time
+      description: New end time (HH:MM format)
+      required: false
+      selector:
+        time:
+    days:
+      name: Days of Week
+      description: New days when the schedule is active
+      required: false
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: "Sunday"
+              value: 1
+            - label: "Monday"
+              value: 2
+            - label: "Tuesday"
+              value: 3
+            - label: "Wednesday"
+              value: 4
+            - label: "Thursday"
+              value: 5
+            - label: "Friday"
+              value: 6
+            - label: "Saturday"
+              value: 7
+    intensity:
+      name: Intensity
+      description: New intensity level (1-10)
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 10
+    active:
+      name: Active
+      description: Whether the schedule should be active
+      required: false
+      selector:
+        boolean:
+
+delete_schedule:
+  name: Delete Schedule
+  description: Delete a schedule.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+  fields:
+    schedule_key:
+      name: Schedule Key
+      description: The unique key of the schedule to delete
+      required: true
+      selector:
+        number:
+          mode: box
+
+toggle_schedule:
+  name: Toggle Schedule
+  description: Enable or disable a schedule.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+  fields:
+    schedule_key:
+      name: Schedule Key
+      description: The unique key of the schedule to toggle
+      required: true
+      selector:
+        number:
+          mode: box
+    active:
+      name: Active
+      description: Whether the schedule should be active
+      required: true
+      selector:
+        boolean:

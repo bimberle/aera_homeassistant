@@ -52,9 +52,9 @@ SENSOR_DESCRIPTIONS: tuple[AeraSensorEntityDescription, ...] = (
         key="session_time_remaining",
         translation_key="session_time_remaining",
         device_class=SensorDeviceClass.DURATION,
-        native_unit_of_measurement=UnitOfTime.MINUTES,
+        native_unit_of_measurement=UnitOfTime.SECONDS,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda state: state.session_time_remaining,
+        value_fn=lambda state: state.session_time_left,
     ),
     AeraSensorEntityDescription(
         key="fragrance",

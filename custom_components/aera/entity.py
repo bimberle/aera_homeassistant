@@ -26,12 +26,21 @@ class AeraEntity(CoordinatorEntity[AeraCoordinator]):
         """Initialize the entity."""
         super().__init__(coordinator)
         self._device = device
-        self._attr_device_info = DeviceInfo(
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device info (dynamically updated)."""
+        device = self.device
+        sw_version = None
+        if device.state is not None:
+            sw_version = device.state.firmware_version
+        
+        return DeviceInfo(
             identifiers={(DOMAIN, device.dsn)},
-            name=device.name,
+            name=device.name,  # Uses room_name if set, otherwise product_name
             manufacturer="Aera",
             model=device.model,
-            sw_version=device.state.firmware if device.state else None,
+            sw_version=sw_version,
         )
 
     @property

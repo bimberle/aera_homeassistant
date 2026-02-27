@@ -109,6 +109,8 @@ class AeraDevice:
         self._device_info = device_info or {}
         self._state: Optional[AeraDeviceState] = None
         self._properties: dict = {}
+        self._room_name: str = ""
+        self._ordered_position: int = 0
     
     @property
     def dsn(self) -> str:
@@ -117,8 +119,30 @@ class AeraDevice:
     
     @property
     def name(self) -> str:
-        """Device name."""
+        """Device name (room name if set, otherwise DSN)."""
+        if self._room_name:
+            return self._room_name
         return self._device_info.get("product_name", self._dsn)
+    
+    @property
+    def room_name(self) -> str:
+        """Room name for the device."""
+        return self._room_name
+    
+    @room_name.setter
+    def room_name(self, value: str) -> None:
+        """Set room name."""
+        self._room_name = value
+    
+    @property
+    def ordered_position(self) -> int:
+        """Display order position."""
+        return self._ordered_position
+    
+    @ordered_position.setter
+    def ordered_position(self, value: int) -> None:
+        """Set ordered position."""
+        self._ordered_position = value
     
     @property
     def model(self) -> str:
@@ -298,6 +322,26 @@ class AeraDevice:
             await self.update()
         return result
 
+    async def set_room_name(self, room_name: str) -> bool:
+        """
+        Set the room name for this device.
+        
+        Args:
+            room_name: The room name to set
+            
+        Returns:
+            True if successful
+        """
+        _LOGGER.info(f"Setting room name to '{room_name}' for device {self._dsn}")
+        result = await self._api.set_device_metadata(
+            self._dsn, 
+            room_name, 
+            self._ordered_position
+        )
+        if result:
+            self._room_name = room_name
+        return result
+
 
 class AeraApi:
     """
@@ -342,9 +386,9 @@ class AeraApi:
         Get all Aera devices on the account.
         
         Returns:
-            List of AeraDevice objects
+            List of AeraDevice objects (sorted by ordered_position)
         """
-        raw_devices = await self._ayla_api.get_devices()
+        raw_devices = await self._ayla_api.get_devices(include_metadata=True)
         
         self._devices = []
         for raw in raw_devices:
@@ -358,7 +402,13 @@ class AeraApi:
                     "connection_status": raw.connection_status,
                 }
             )
+            # Set room name and position from metadata
+            device.room_name = raw.room_name
+            device.ordered_position = raw.ordered_position
             self._devices.append(device)
+        
+        # Sort by ordered_position
+        self._devices.sort(key=lambda d: d.ordered_position)
         
         return self._devices
     
@@ -379,6 +429,22 @@ class AeraApi:
             if device.dsn == dsn:
                 return device
         return None
+    
+    async def set_room_name(self, dsn: str, room_name: str) -> bool:
+        """
+        Set the room name for a device.
+        
+        Args:
+            dsn: Device Serial Number
+            room_name: The room name to set
+            
+        Returns:
+            True if successful
+        """
+        device = await self.get_device(dsn)
+        if device:
+            return await device.set_room_name(room_name)
+        return False
     
     async def close(self):
         """Close the API connection."""

@@ -61,12 +61,12 @@ class AeraFan(AeraEntity, FanEntity):
         """Return true if the diffuser is on."""
         if self.device.state is None:
             return None
-        return self.device.state.is_on
+        return self.device.state.power_on
 
     @property
     def percentage(self) -> int | None:
         """Return the current speed percentage."""
-        if self.device.state is None or not self.device.state.is_on:
+        if self.device.state is None or not self.device.state.power_on:
             return 0
         return ranged_value_to_percentage(
             INTENSITY_RANGE, self.device.state.intensity

@@ -11,7 +11,7 @@ Eine HACS-Integration für Aera Smart Diffuser in Home Assistant.
 - **Sessions** - Timer-basierte Sitzungen (2h, 4h, 8h)
 - **Duft setzen** - Für aeraMini manueller Duft-Code
 - **Room Names** - Raumnamen aus der Aera App
-- **Custom Card** - Schöne Lovelace-Karte (optional)
+- **Sensoren** - Intensität, Füllstand, Session-Status
 
 ## Installation
 
@@ -34,32 +34,18 @@ Eine HACS-Integration für Aera Smart Diffuser in Home Assistant.
 2. "Aera" suchen
 3. Email und Passwort deines Aera-Kontos eingeben
 
-## Lovelace Card (optional)
+## Lovelace Card (separat)
 
-Die Integration enthält eine schöne Custom Card.
+Für eine schöne Custom Card installiere die **Aera Card** separat via HACS:
 
-### Card einrichten
+👉 **[Aera Card](https://github.com/bimberle/aera-card)** - Custom Lovelace Card mit GUI-Editor
 
-1. Lovelace Dashboard → ⋮ → Ressourcen verwalten
-2. Ressource hinzufügen:
-   - URL: `/aera/aera-card.js`
-   - Typ: JavaScript-Modul
-3. Card zu deinem Dashboard hinzufügen:
+### Card Installation (HACS)
 
-```yaml
-type: custom:aera-card
-entity: fan.kitchen  # Deine Aera Entity
-show_session: true
-show_fragrance: true
-```
-
-### Card-Optionen
-
-| Option | Default | Beschreibung |
-|--------|---------|--------------|
-| `entity` | - | Entity-ID des Aera Diffusers (erforderlich) |
-| `show_session` | true | Session-Timer anzeigen |
-| `show_fragrance` | true | Duft-Name anzeigen |
+1. HACS → Frontend → ⋮ → Benutzerdefinierte Repositories
+2. URL: `https://github.com/bimberle/aera-card`
+3. Kategorie: Lovelace
+4. "Aera Card" installieren
 
 ## Unterstützte Geräte
 
@@ -70,11 +56,20 @@ show_fragrance: true
 
 | Service | Beschreibung |
 |---------|--------------|
-| `aera.set_intensity` | Intensität setzen (1-10) |
 | `aera.start_session` | Session starten (120/240/480 Min) |
 | `aera.stop_session` | Aktive Session stoppen |
 | `aera.set_fragrance` | Duft-Code setzen (aeraMini) |
 | `aera.set_room_name` | Raumnamen ändern |
+
+## Entities
+
+Jeder Diffuser erstellt folgende Entities:
+
+- **Fan** (`fan.{room_name}`) - Hauptsteuerung mit Power und Intensität
+- **Sensor Intensity** - Aktuelle Intensitätsstufe
+- **Sensor Fill Level** - Füllstand der Kartusche (nur aera31)
+- **Sensor Session Time** - Verbleibende Session-Zeit
+- **Sensor Fragrance** - Name des aktuellen Dufts
 
 ## Entwicklung
 

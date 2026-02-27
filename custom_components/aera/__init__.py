@@ -2,11 +2,8 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from homeassistant.components.http import StaticPathConfig
-from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant
@@ -23,17 +20,9 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.FAN, Platform.SENSOR]
 
-# Frontend card
-CARD_URL = "/aera/aera-card.js"
-CARD_NAME = "aera-card"
-CARD_REGISTERED = "aera_card_registered"
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Aera from a config entry."""
-    # Register the frontend card
-    await _async_register_card(hass)
-    
     # Import here to avoid loading ayla_api at startup
     from .ayla_api import AeraApi
 
@@ -84,31 +73,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await async_unload_services(hass)
 
     return unload_ok
-
-
-async def _async_register_card(hass: HomeAssistant) -> None:
-    """Register the Aera card as a frontend resource."""
-    # Only register once per HA instance
-    if hass.data.get(CARD_REGISTERED):
-        return
-    hass.data[CARD_REGISTERED] = True
-    
-    # Get path to our www folder
-    www_path = Path(__file__).parent / "www"
-    
-    # Register static path for the card JS file
-    try:
-        await hass.http.async_register_static_paths([
-            StaticPathConfig("/aera", str(www_path), cache_headers=False)
-        ])
-        _LOGGER.info("Registered Aera card static path at /aera")
-    except Exception as err:
-        _LOGGER.warning("Could not register static path: %s", err)
-        return
-    
-    # Note: Users need to manually add the resource to Lovelace:
-    # Resources -> Add -> URL: /aera/aera-card.js, Type: JavaScript Module
-    _LOGGER.info(
-        "Aera card available. Add to Lovelace resources: %s (JavaScript Module)",
-        CARD_URL
-    )

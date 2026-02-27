@@ -73,11 +73,17 @@ class AeraFan(AeraEntity, FanEntity):
         )
 
     @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.device.is_online
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
         attrs = {
             "room_name": self.device.room_name,
             "dsn": self.device.dsn,
+            "connection_status": self.device.connection_status,
         }
         if self.device.state:
             attrs["session_active"] = self.device.state.session_active

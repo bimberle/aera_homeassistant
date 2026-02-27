@@ -150,6 +150,16 @@ class AeraDevice:
         return self._device_info.get("oem_model", "Unknown")
     
     @property
+    def connection_status(self) -> str:
+        """Connection status (Online/Offline)."""
+        return self._device_info.get("connection_status", "Unknown")
+    
+    @property
+    def is_online(self) -> bool:
+        """Check if device is online."""
+        return self.connection_status == "Online"
+    
+    @property
     def state(self) -> Optional[AeraDeviceState]:
         """Current device state (call update() first)."""
         return self._state
@@ -161,18 +171,17 @@ class AeraDevice:
         Returns:
             AeraDeviceState with current values
         """
-        # Get device info if not already cached
-        if not self._device_info:
-            devices = await self._api.get_devices()
-            for d in devices:
-                if d.dsn == self._dsn:
-                    self._device_info = {
-                        "product_name": d.product_name,
-                        "model": d.model,
-                        "oem_model": d.device_type,
-                        "connection_status": d.connection_status,
-                    }
-                    break
+        # Always refresh device info to get latest connection_status
+        devices = await self._api.get_devices()
+        for d in devices:
+            if d.dsn == self._dsn:
+                self._device_info = {
+                    "product_name": d.product_name,
+                    "model": d.model,
+                    "oem_model": d.device_type,
+                    "connection_status": d.connection_status,
+                }
+                break
         
         # Get properties
         self._properties = await self._api.get_device_properties(self._dsn)

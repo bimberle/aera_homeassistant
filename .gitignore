@@ -3,6 +3,11 @@
 *.pem
 *.key
 
+# Test files with credentials
+test_*.py
+debug_*.py
+analyze_*.py
+
 # Virtual environments
 venv/
 .venv/

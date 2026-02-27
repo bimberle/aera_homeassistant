@@ -7,6 +7,7 @@ through the Ayla Networks IoT platform.
 
 import aiohttp
 import asyncio
+import json
 from dataclasses import dataclass
 from typing import Optional
 import logging
@@ -34,6 +35,15 @@ class AylaAuthToken:
 
 
 @dataclass
+class DeviceMetadata:
+    """Device metadata including room name and position."""
+    dsn: str
+    room_name: str
+    ordered_position: int
+    schedule_order: list
+
+
+@dataclass
 class AeraDevice:
     """Aera device representation."""
     dsn: str  # Device Serial Number
@@ -42,6 +52,8 @@ class AeraDevice:
     device_type: str
     connection_status: str
     properties: dict
+    room_name: str = ""  # Room name from metadata
+    ordered_position: int = 0  # Display order
     
     @property
     def is_online(self) -> bool:
@@ -56,7 +68,6 @@ class AylaApiError(Exception):
 class AylaAuthError(AylaApiError):
     """Authentication error."""
     pass
-
 
 class AylaApi:
     """Ayla Networks API Client."""
@@ -145,9 +156,12 @@ class AylaApi:
         _LOGGER.info("Successfully logged in to Ayla API")
         return self._auth_token
     
-    async def get_devices(self) -> list[AeraDevice]:
+    async def get_devices(self, include_metadata: bool = True) -> list[AeraDevice]:
         """
         Get all devices associated with the user account.
+        
+        Args:
+            include_metadata: If True, also fetch room names from device metadata.
         
         Returns:
             List of AeraDevice objects.
@@ -164,24 +178,41 @@ class AylaApi:
             if resp.status == 401:
                 # Token might be expired, try to re-login
                 await self.login()
-                return await self.get_devices()
+                return await self.get_devices(include_metadata)
             if resp.status != 200:
                 text = await resp.text()
                 raise AylaApiError(f"Failed to get devices: {resp.status} - {text}")
             
             data = await resp.json()
         
+        # Fetch metadata for room names
+        metadata = {}
+        if include_metadata:
+            try:
+                metadata = await self.get_device_metadata()
+            except AylaApiError:
+                _LOGGER.warning("Failed to fetch device metadata, continuing without room names")
+        
         devices = []
         for item in data:
             device_data = item.get("device", {})
+            dsn = device_data.get("dsn", "")
+            device_meta = metadata.get(dsn)
+            
             devices.append(AeraDevice(
-                dsn=device_data.get("dsn", ""),
+                dsn=dsn,
                 product_name=device_data.get("product_name", ""),
                 model=device_data.get("model", ""),
                 device_type=device_data.get("device_type", ""),
                 connection_status=device_data.get("connection_status", "Offline"),
                 properties={},
+                room_name=device_meta.room_name if device_meta else "",
+                ordered_position=device_meta.ordered_position if device_meta else 0,
             ))
+        
+        # Sort by ordered_position if metadata was available
+        if include_metadata and metadata:
+            devices.sort(key=lambda d: d.ordered_position)
         
         _LOGGER.info(f"Found {len(devices)} devices")
         return devices
@@ -255,6 +286,134 @@ class AylaApi:
                 raise AylaApiError(f"Failed to set property: {resp.status} - {text}")
         
         _LOGGER.info(f"Successfully set {property_name}={value} for device {dsn}")
+        return True
+
+    async def get_device_metadata(self) -> dict[str, DeviceMetadata]:
+        """
+        Get device metadata including room names from Ayla Datum API.
+        
+        Returns:
+            Dict mapping DSN to DeviceMetadata objects.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        session = await self._get_session()
+        url = f"{AYLA_USER_SERVICE}/api/v1/users/data/device_data_table.json"
+        
+        _LOGGER.debug("Fetching device metadata from Ayla API")
+        
+        async with session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                # No metadata exists yet
+                return {}
+            if resp.status != 200:
+                text = await resp.text()
+                raise AylaApiError(f"Failed to get device metadata: {resp.status} - {text}")
+            
+            data = await resp.json()
+        
+        result = {}
+        try:
+            value_str = data.get("datum", {}).get("value", "[]")
+            metadata_list = json.loads(value_str)
+            
+            for item in metadata_list:
+                dsn = item.get("dsn", "")
+                if dsn:
+                    result[dsn] = DeviceMetadata(
+                        dsn=dsn,
+                        room_name=item.get("room_name", ""),
+                        ordered_position=item.get("ordered_position", 0),
+                        schedule_order=item.get("schedule_order", []),
+                    )
+        except json.JSONDecodeError:
+            _LOGGER.warning("Failed to parse device metadata JSON")
+        
+        return result
+    
+    async def set_device_metadata(
+        self,
+        dsn: str,
+        room_name: Optional[str] = None,
+        ordered_position: Optional[int] = None,
+    ) -> bool:
+        """
+        Update device metadata (room name, position).
+        
+        Args:
+            dsn: Device Serial Number
+            room_name: New room name (optional)
+            ordered_position: New display position (optional)
+            
+        Returns:
+            True if successful.
+        """
+        if not self._auth_token:
+            await self.login()
+        
+        # First fetch current metadata
+        current_metadata = await self.get_device_metadata()
+        
+        # Build the updated metadata list
+        metadata_list = []
+        found = False
+        
+        for existing_dsn, meta in current_metadata.items():
+            if existing_dsn == dsn:
+                found = True
+                metadata_list.append({
+                    "dsn": dsn,
+                    "room_name": room_name if room_name is not None else meta.room_name,
+                    "ordered_position": ordered_position if ordered_position is not None else meta.ordered_position,
+                    "schedule_order": meta.schedule_order,
+                })
+            else:
+                metadata_list.append({
+                    "dsn": existing_dsn,
+                    "room_name": meta.room_name,
+                    "ordered_position": meta.ordered_position,
+                    "schedule_order": meta.schedule_order,
+                })
+        
+        # If device not found in metadata, add it
+        if not found:
+            metadata_list.append({
+                "dsn": dsn,
+                "room_name": room_name or "",
+                "ordered_position": ordered_position if ordered_position is not None else len(metadata_list),
+                "schedule_order": [],
+            })
+        
+        # Update the datum
+        session = await self._get_session()
+        url = f"{AYLA_USER_SERVICE}/api/v1/users/data/device_data_table.json"
+        
+        payload = {
+            "datum": {
+                "key": "device_data_table",
+                "value": json.dumps(metadata_list),
+            }
+        }
+        
+        _LOGGER.debug(f"Updating device metadata for {dsn}")
+        
+        # Check if datum exists to decide between PUT and POST
+        if current_metadata:
+            # Update existing datum
+            async with session.put(url, json=payload, headers=self._get_headers()) as resp:
+                if resp.status not in (200, 201):
+                    text = await resp.text()
+                    raise AylaApiError(f"Failed to update device metadata: {resp.status} - {text}")
+        else:
+            # Create new datum
+            url = f"{AYLA_USER_SERVICE}/api/v1/users/data.json"
+            async with session.post(url, json=payload, headers=self._get_headers()) as resp:
+                if resp.status not in (200, 201):
+                    text = await resp.text()
+                    raise AylaApiError(f"Failed to create device metadata: {resp.status} - {text}")
+        
+        _LOGGER.info(f"Successfully updated metadata for device {dsn}")
         return True
 
 

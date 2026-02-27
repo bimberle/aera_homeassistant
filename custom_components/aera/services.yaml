@@ -42,3 +42,18 @@ set_fragrance:
       required: true
       selector:
         text:
+
+set_room_name:
+  name: Set Room Name
+  description: Set the room name for an Aera device.
+  target:
+    entity:
+      integration: aera
+      domain: fan
+  fields:
+    room_name:
+      name: Room Name
+      description: The name of the room where the device is located
+      required: true
+      selector:
+        text:

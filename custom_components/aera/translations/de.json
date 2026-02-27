@@ -34,6 +34,45 @@
       },
       "pump_lifetime": {
         "name": "Pump-Lebensdauer"
+      },
+      "room_name": {
+        "name": "Raumname"
+      }
+    }
+  },
+  "services": {
+    "start_session": {
+      "name": "Session starten",
+      "description": "Startet eine zeitgesteuerte Duft-Session.",
+      "fields": {
+        "duration": {
+          "name": "Dauer",
+          "description": "Session-Dauer"
+        }
+      }
+    },
+    "stop_session": {
+      "name": "Session beenden",
+      "description": "Beendet die aktuelle Duft-Session."
+    },
+    "set_fragrance": {
+      "name": "Duft setzen",
+      "description": "Setzt den Duft für aeraMini-Geräte.",
+      "fields": {
+        "fragrance_id": {
+          "name": "Duft-ID",
+          "description": "Die 3-Buchstaben Duft-Kennung"
+        }
+      }
+    },
+    "set_room_name": {
+      "name": "Raumname setzen",
+      "description": "Setzt den Raumnamen für ein Aera-Gerät.",
+      "fields": {
+        "room_name": {
+          "name": "Raumname",
+          "description": "Der Name des Raums, in dem sich das Gerät befindet"
+        }
       }
     }
   }

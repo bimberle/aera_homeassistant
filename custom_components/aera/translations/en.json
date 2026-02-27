@@ -34,6 +34,45 @@
       },
       "pump_lifetime": {
         "name": "Pump Lifetime"
+      },
+      "room_name": {
+        "name": "Room Name"
+      }
+    }
+  },
+  "services": {
+    "start_session": {
+      "name": "Start Session",
+      "description": "Start a timed fragrance session.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "Session duration"
+        }
+      }
+    },
+    "stop_session": {
+      "name": "Stop Session",
+      "description": "Stop the current fragrance session."
+    },
+    "set_fragrance": {
+      "name": "Set Fragrance",
+      "description": "Set the fragrance for aeraMini devices.",
+      "fields": {
+        "fragrance_id": {
+          "name": "Fragrance ID",
+          "description": "The 3-letter fragrance identifier"
+        }
+      }
+    },
+    "set_room_name": {
+      "name": "Set Room Name",
+      "description": "Set the room name for an Aera device.",
+      "fields": {
+        "room_name": {
+          "name": "Room Name",
+          "description": "The name of the room where the device is located"
+        }
       }
     }
   }

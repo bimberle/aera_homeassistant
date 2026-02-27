@@ -72,6 +72,23 @@ class AeraFan(AeraEntity, FanEntity):
             INTENSITY_RANGE, self.device.state.intensity
         )
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes."""
+        attrs = {
+            "room_name": self.device.room_name,
+            "dsn": self.device.dsn,
+        }
+        if self.device.state:
+            attrs["session_active"] = self.device.state.session_active
+            attrs["session_time_remaining"] = self.device.state.session_time_left
+            attrs["intensity"] = self.device.state.intensity
+            if self.device.state.fragrance_name:
+                attrs["fragrance"] = self.device.state.fragrance_name
+            if self.device.state.fill_level is not None:
+                attrs["fill_level"] = self.device.state.fill_level
+        return attrs
+
     async def async_turn_on(
         self,
         percentage: int | None = None,

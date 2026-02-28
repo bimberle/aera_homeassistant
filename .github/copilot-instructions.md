@@ -43,3 +43,35 @@ custom_components/aera/        # Home Assistant Integration
 
 - AC000W027374342 (aeraMini) → "Guest Room"
 - AC000W041709779 (aera31) → "Kitchen"
+
+## HACS Release-Prozess (WICHTIG!)
+
+Beim Erstellen einer neuen Version **IMMER** diese Schritte befolgen, damit HACS die neue Version erkennt:
+
+### Integration (aera_homeassistant)
+1. **Version in `custom_components/aera/manifest.json` aktualisieren** (z.B. `"version": "1.3.0"`)
+2. Änderungen committen und pushen
+3. **Git Tag erstellen:** `git tag v1.3.0`
+4. **Tag pushen:** `git push origin v1.3.0`
+5. **GitHub Release erstellen:** `gh release create v1.3.0 --title "v1.3.0 - Titel" --notes "Release Notes..."`
+
+### Card (aera-card)
+1. **Version in `package.json` aktualisieren** (z.B. `"version": "1.3.0"`)
+2. **Build ausführen:** `npm run build`
+3. Änderungen committen und pushen
+4. **Git Tag erstellen:** `git tag v1.3.0`
+5. **Tag pushen:** `git push origin v1.3.0`
+6. **GitHub Release erstellen:** `gh release create v1.3.0 --title "v1.3.0 - Titel" --notes "Release Notes..."`
+
+### Checkliste vor Release
+- [ ] Version in manifest.json/package.json aktualisiert
+- [ ] Beide ayla_api Ordner synchron (Integration)
+- [ ] Build erfolgreich (Card)
+- [ ] Git Tag erstellt und gepusht
+- [ ] **GitHub Release erstellt** (HACS braucht einen echten Release, nicht nur einen Tag!)
+
+## GitHub Repositories
+
+- **Integration:** https://github.com/bimberle/aera_homeassistant
+- **Card:** https://github.com/bimberle/aera-card
+- **Workspace:** `/Users/michi/Nextcloud/dev/aera.code-workspace` (beide Projekte)

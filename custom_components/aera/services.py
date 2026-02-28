@@ -235,13 +235,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             _LOGGER.info("Toggled schedule %d to %s on %s", schedule_key, active, device.name)
         return result
 
+    # Register services with entity service schemas that support target:
     hass.services.async_register(
         DOMAIN,
         SERVICE_START_SESSION,
         async_start_session,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_DURATION): vol.In(["2h", "4h", "8h"]),
             }
         ),
@@ -251,42 +251,29 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_STOP_SESSION,
         async_stop_session,
-        schema=vol.Schema(
-            {
-                vol.Required("entity_id"): cv.entity_ids,
-            }
-        ),
+        schema=cv.make_entity_service_schema({}),
     )
 
     hass.services.async_register(
         DOMAIN,
         SERVICE_TURN_ON,
         async_turn_on,
-        schema=vol.Schema(
-            {
-                vol.Required("entity_id"): cv.entity_ids,
-            }
-        ),
+        schema=cv.make_entity_service_schema({}),
     )
 
     hass.services.async_register(
         DOMAIN,
         SERVICE_TURN_OFF,
         async_turn_off,
-        schema=vol.Schema(
-            {
-                vol.Required("entity_id"): cv.entity_ids,
-            }
-        ),
+        schema=cv.make_entity_service_schema({}),
     )
 
     hass.services.async_register(
         DOMAIN,
         SERVICE_SET_INTENSITY,
         async_set_intensity,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_INTENSITY): vol.All(
                     vol.Coerce(int), vol.Range(min=1, max=10)
                 ),
@@ -298,9 +285,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_SET_FRAGRANCE,
         async_set_fragrance,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_FRAGRANCE_ID): cv.string,
             }
         ),
@@ -310,9 +296,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_SET_ROOM_NAME,
         async_set_room_name,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_ROOM_NAME): cv.string,
             }
         ),
@@ -323,11 +308,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_GET_SCHEDULES,
         async_get_schedules,
-        schema=vol.Schema(
-            {
-                vol.Required("entity_id"): cv.entity_ids,
-            }
-        ),
+        schema=cv.make_entity_service_schema({}),
         supports_response=SupportsResponse.ONLY,
     )
 
@@ -335,9 +316,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_CREATE_SCHEDULE,
         async_create_schedule,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_SCHEDULE_NAME): cv.string,
                 vol.Optional(ATTR_START_TIME, default="08:00"): cv.string,
                 vol.Optional(ATTR_END_TIME, default="22:00"): cv.string,
@@ -356,9 +336,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_UPDATE_SCHEDULE,
         async_update_schedule,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_SCHEDULE_KEY): vol.Coerce(int),
                 vol.Optional(ATTR_SCHEDULE_NAME): cv.string,
                 vol.Optional(ATTR_START_TIME): cv.string,
@@ -378,9 +357,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_DELETE_SCHEDULE,
         async_delete_schedule,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_SCHEDULE_KEY): vol.Coerce(int),
             }
         ),
@@ -390,9 +368,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_TOGGLE_SCHEDULE,
         async_toggle_schedule,
-        schema=vol.Schema(
+        schema=cv.make_entity_service_schema(
             {
-                vol.Required("entity_id"): cv.entity_ids,
                 vol.Required(ATTR_SCHEDULE_KEY): vol.Coerce(int),
                 vol.Required(ATTR_ACTIVE): cv.boolean,
             }

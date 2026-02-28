@@ -49,7 +49,7 @@ class AylaScheduleAction:
     name: str                    # Property name to change
     base_type: str               # "integer", "boolean", etc.
     value: str                   # Value to set
-    type: str = "property"       # "property" for property-based actions
+    type: str = "SchedulePropertyAction"  # Must be exactly this for Ayla API
     active: bool = True
     at_start: bool = True        # Execute at schedule start
     at_end: bool = False         # Execute at schedule end
@@ -76,7 +76,7 @@ class AylaScheduleAction:
             name=data.get("name", ""),
             base_type=data.get("base_type", "integer"),
             value=str(data.get("value", "")),
-            type=data.get("type", "property"),
+            type=data.get("type", "SchedulePropertyAction"),
             active=data.get("active", True),
             at_start=data.get("at_start", True),
             at_end=data.get("at_end", False),

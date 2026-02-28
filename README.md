@@ -9,6 +9,7 @@ Eine HACS-Integration für Aera Smart Diffuser in Home Assistant.
 - **Ein/Aus schalten** - Diffuser steuern
 - **Intensität** - Stärke 1-10 einstellen
 - **Sessions** - Timer-basierte Sitzungen (2h, 4h, 8h)
+- **Schedules** - Zeitpläne erstellen, bearbeiten und löschen
 - **Duft setzen** - Für aeraMini manueller Duft-Code
 - **Room Names** - Raumnamen aus der Aera App
 - **Sensoren** - Intensität, Füllstand, Session-Status
@@ -60,6 +61,11 @@ Für eine schöne Custom Card installiere die **Aera Card** separat via HACS:
 | `aera.stop_session` | Aktive Session stoppen |
 | `aera.set_fragrance` | Duft-Code setzen (aeraMini) |
 | `aera.set_room_name` | Raumnamen ändern |
+| `aera.get_schedules` | Alle Zeitpläne eines Geräts abrufen |
+| `aera.create_schedule` | Neuen Zeitplan erstellen |
+| `aera.update_schedule` | Zeitplan bearbeiten |
+| `aera.delete_schedule` | Zeitplan löschen |
+| `aera.toggle_schedule` | Zeitplan aktivieren/deaktivieren |
 
 ## Entities
 

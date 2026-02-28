@@ -113,6 +113,7 @@ class AeraDevice:
         self._properties: dict = {}
         self._room_name: str = ""
         self._ordered_position: int = 0
+        self._schedules: List[AylaSchedule] = []
     
     @property
     def dsn(self) -> str:
@@ -171,6 +172,11 @@ class AeraDevice:
         """Current device state (call update() first)."""
         return self._state
     
+    @property
+    def schedules(self) -> List[AylaSchedule]:
+        """Cached schedules for this device (call update() first)."""
+        return self._schedules
+    
     async def update(self) -> AeraDeviceState:
         """
         Fetch the latest state from the device.
@@ -195,6 +201,15 @@ class AeraDevice:
         
         # Parse properties into state
         self._state = self._parse_state()
+        
+        # Load schedules if device has a key
+        if self._key:
+            try:
+                self._schedules = await self._api.get_schedules(self._key)
+            except Exception as e:
+                _LOGGER.warning(f"Failed to load schedules for {self._dsn}: {e}")
+                # Keep existing schedules on error
+        
         return self._state
     
     def _get_prop_value(self, name: str, default=None):

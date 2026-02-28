@@ -95,6 +95,24 @@ class AeraFan(AeraEntity, FanEntity):
                 attrs["fragrance"] = self.device.state.fragrance_name
             if self.device.state.fill_level is not None:
                 attrs["fill_level"] = self.device.state.fill_level
+        
+        # Add schedules
+        if self.device.schedules:
+            attrs["schedules"] = [
+                {
+                    "key": s.key,
+                    "name": s.display_name,
+                    "active": s.active,
+                    "start_time": s.start_time_each_day[:5],  # HH:MM
+                    "end_time": s.end_time_each_day[:5],      # HH:MM
+                    "days": s.days_of_week,
+                    "actions": [{"name": a.name, "value": a.value} for a in s.actions],
+                }
+                for s in self.device.schedules
+            ]
+        else:
+            attrs["schedules"] = []
+        
         return attrs
 
     async def async_turn_on(

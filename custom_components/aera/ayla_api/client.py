@@ -148,6 +148,7 @@ class AylaSchedule:
 class AeraDevice:
     """Aera device representation."""
     dsn: str  # Device Serial Number
+    key: int  # Ayla device key (numeric ID) - required for schedule API!
     product_name: str
     model: str
     device_type: str
@@ -302,6 +303,7 @@ class AylaApi:
             
             devices.append(AeraDevice(
                 dsn=dsn,
+                key=device_data.get("key", 0),  # Numeric device key for schedule API
                 product_name=device_data.get("product_name", ""),
                 model=device_data.get("model", ""),
                 device_type=device_data.get("device_type", ""),
@@ -521,12 +523,12 @@ class AylaApi:
     # Schedule API
     # =========================================================================
     
-    async def get_schedules(self, dsn: str) -> List[AylaSchedule]:
+    async def get_schedules(self, device_key: int) -> List[AylaSchedule]:
         """
         Get all schedules for a device.
         
         Args:
-            dsn: Device Serial Number
+            device_key: Ayla device key (numeric ID, NOT the DSN string!)
             
         Returns:
             List of AylaSchedule objects.
@@ -535,9 +537,9 @@ class AylaApi:
             await self.login()
         
         session = await self._get_session()
-        url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{dsn}/schedules.json"
+        url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{device_key}/schedules.json"
         
-        _LOGGER.debug(f"Fetching schedules for device {dsn}")
+        _LOGGER.debug(f"Fetching schedules for device key {device_key}")
         
         async with session.get(url, headers=self._get_headers()) as resp:
             if resp.status != 200:
@@ -561,7 +563,7 @@ class AylaApi:
             
             schedules.append(schedule)
         
-        _LOGGER.info(f"Found {len(schedules)} schedules for device {dsn}")
+        _LOGGER.info(f"Found {len(schedules)} schedules for device key {device_key}")
         return schedules
     
     async def get_schedule_actions(self, schedule_key: int) -> List[AylaScheduleAction]:
@@ -596,12 +598,12 @@ class AylaApi:
         
         return actions
     
-    async def create_schedule(self, dsn: str, schedule: AylaSchedule) -> AylaSchedule:
+    async def create_schedule(self, device_key: int, schedule: AylaSchedule) -> AylaSchedule:
         """
         Create a new schedule for a device.
         
         Args:
-            dsn: Device Serial Number
+            device_key: Ayla device key (numeric ID, NOT the DSN string!)
             schedule: AylaSchedule object to create
             
         Returns:
@@ -611,11 +613,11 @@ class AylaApi:
             await self.login()
         
         session = await self._get_session()
-        url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{dsn}/schedules.json"
+        url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{device_key}/schedules.json"
         
         payload = {"schedule": schedule.to_dict()}
         
-        _LOGGER.debug(f"Creating schedule '{schedule.display_name}' for device {dsn}")
+        _LOGGER.debug(f"Creating schedule '{schedule.display_name}' for device key {device_key}")
         
         async with session.post(url, json=payload, headers=self._get_headers()) as resp:
             if resp.status not in (200, 201):

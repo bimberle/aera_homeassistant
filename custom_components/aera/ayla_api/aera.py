@@ -95,17 +95,19 @@ class AeraDeviceState:
 class AeraDevice:
     """High-level interface for an Aera diffuser device."""
     
-    def __init__(self, api: AylaApi, dsn: str, device_info: dict = None):
+    def __init__(self, api: AylaApi, dsn: str, key: int = 0, device_info: dict = None):
         """
         Initialize an Aera device.
         
         Args:
             api: Authenticated AylaApi instance
             dsn: Device Serial Number
+            key: Ayla device key (numeric ID for schedule API)
             device_info: Optional device info dict from API
         """
         self._api = api
         self._dsn = dsn
+        self._key = key
         self._device_info = device_info or {}
         self._state: Optional[AeraDeviceState] = None
         self._properties: dict = {}
@@ -116,6 +118,11 @@ class AeraDevice:
     def dsn(self) -> str:
         """Device Serial Number."""
         return self._dsn
+    
+    @property
+    def key(self) -> int:
+        """Ayla device key (numeric ID for schedule API)."""
+        return self._key
     
     @property
     def name(self) -> str:
@@ -362,8 +369,8 @@ class AeraDevice:
         Returns:
             List of AylaSchedule objects with their actions.
         """
-        _LOGGER.info(f"Getting schedules for device {self._dsn}")
-        return await self._api.get_schedules(self._dsn)
+        _LOGGER.info(f"Getting schedules for device {self._dsn} (key={self._key})")
+        return await self._api.get_schedules(self._key)
     
     async def create_schedule(
         self,
@@ -437,8 +444,8 @@ class AeraDevice:
             ]
         )
         
-        _LOGGER.info(f"Creating schedule '{name}' for device {self._dsn}")
-        return await self._api.create_schedule(self._dsn, schedule)
+        _LOGGER.info(f"Creating schedule '{name}' for device {self._dsn} (key={self._key})")
+        return await self._api.create_schedule(self._key, schedule)
     
     async def update_schedule(
         self,
@@ -581,6 +588,7 @@ class AeraApi:
             device = AeraDevice(
                 api=self._ayla_api,
                 dsn=raw.dsn,
+                key=raw.key,  # Numeric device key for schedule API
                 device_info={
                     "product_name": raw.product_name,
                     "model": raw.model,

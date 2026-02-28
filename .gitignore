@@ -62,3 +62,4 @@ Thumbs.db
 # Home Assistant
 config/
 *.log
+test_schedules.py

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import DOMAIN, SESSION_DURATIONS
@@ -256,6 +256,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 vol.Required("entity_id"): cv.entity_ids,
             }
         ),
+        supports_response=SupportsResponse.ONLY,
     )
 
     hass.services.async_register(

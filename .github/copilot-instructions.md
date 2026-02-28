@@ -62,6 +62,9 @@ Beim Erstellen einer neuen Version **IMMER** diese Schritte befolgen, damit HACS
 4. **Git Tag erstellen:** `git tag v1.3.0`
 5. **Tag pushen:** `git push origin v1.3.0`
 6. **GitHub Release erstellen:** `gh release create v1.3.0 --title "v1.3.0 - Titel" --notes "Release Notes..."`
+7. **⚠️ WICHTIG: JS-Datei als Asset hochladen:** `gh release upload v1.3.0 dist/aera-card.js`
+   - HACS Frontend-Karten brauchen die kompilierte JS-Datei als Release-Asset!
+   - Ohne dieses Asset lädt HACS die alte Version!
 
 ### Checkliste vor Release
 - [ ] Version in manifest.json/package.json aktualisiert
@@ -69,6 +72,7 @@ Beim Erstellen einer neuen Version **IMMER** diese Schritte befolgen, damit HACS
 - [ ] Build erfolgreich (Card)
 - [ ] Git Tag erstellt und gepusht
 - [ ] **GitHub Release erstellt** (HACS braucht einen echten Release, nicht nur einen Tag!)
+- [ ] **Card: `dist/aera-card.js` als Release-Asset hochgeladen!**
 
 ## GitHub Repositories
 

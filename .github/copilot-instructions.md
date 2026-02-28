@@ -58,18 +58,19 @@ Beim Erstellen einer neuen Version **IMMER** diese Schritte befolgen, damit HACS
 ### Card (aera-card)
 1. **Version in `package.json` aktualisieren** (z.B. `"version": "1.3.0"`)
 2. **Build ausführen:** `npm run build`
-3. Änderungen committen und pushen
-4. **Git Tag erstellen:** `git tag v1.3.0`
-5. **Tag pushen:** `git push origin v1.3.0`
-6. **GitHub Release erstellen:** `gh release create v1.3.0 --title "v1.3.0 - Titel" --notes "Release Notes..."`
-7. **⚠️ WICHTIG: JS-Datei als Asset hochladen:** `gh release upload v1.3.0 dist/aera-card.js`
-   - HACS Frontend-Karten brauchen die kompilierte JS-Datei als Release-Asset!
-   - Ohne dieses Asset lädt HACS die alte Version!
+3. **⚠️ WICHTIG: Kompilierte JS ins Root kopieren:** `cp dist/aera-card.js aera-card.js`
+   - HACS lädt die Datei aus dem Repo-Root, NICHT aus dem Release-Asset!
+4. Änderungen committen und pushen
+5. **Git Tag erstellen:** `git tag v1.3.0`
+6. **Tag pushen:** `git push origin v1.3.0`
+7. **GitHub Release erstellen:** `gh release create v1.3.0 --title "v1.3.0 - Titel" --notes "Release Notes..."`
+8. **JS-Datei als Asset hochladen:** `gh release upload v1.3.0 dist/aera-card.js`
 
 ### Checkliste vor Release
 - [ ] Version in manifest.json/package.json aktualisiert
 - [ ] Beide ayla_api Ordner synchron (Integration)
 - [ ] Build erfolgreich (Card)
+- [ ] **Card: `aera-card.js` im Root aktualisiert!** (HACS lädt von hier!)
 - [ ] Git Tag erstellt und gepusht
 - [ ] **GitHub Release erstellt** (HACS braucht einen echten Release, nicht nur einen Tag!)
 - [ ] **Card: `dist/aera-card.js` als Release-Asset hochgeladen!**

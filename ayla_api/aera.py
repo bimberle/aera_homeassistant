@@ -14,6 +14,7 @@ from enum import IntEnum
 import logging
 
 from .client import AylaApi, AylaApiError, AylaSchedule, AylaScheduleAction
+from .fragrances import get_fragrance_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -219,6 +220,25 @@ class AeraDevice:
         value = prop.get("value") if isinstance(prop, dict) else prop
         return value if value is not None else default
     
+    def _get_fragrance_name_resolved(self) -> Optional[str]:
+        """
+        Get fragrance name, with fallback for aeraMini.
+        
+        aera31: Uses 'fragrance_name' property directly
+        aeraMini: Has no 'fragrance_name', uses 'set_fragrance_identifier' (3-letter code)
+        """
+        # First try direct fragrance_name (aera31)
+        name = self._get_prop_value("fragrance_name")
+        if name:
+            return name
+        
+        # Fallback: map from set_fragrance_identifier (aeraMini)
+        frag_id = self._get_prop_value("set_fragrance_identifier")
+        if frag_id:
+            return get_fragrance_name(frag_id)
+        
+        return None
+
     def _parse_state(self) -> AeraDeviceState:
         """Parse raw properties into AeraDeviceState."""
         return AeraDeviceState(
@@ -244,7 +264,7 @@ class AeraDevice:
             cartridge_present=self._get_prop_value("cartridge_present") == 1 
                 if self._get_prop_value("cartridge_present") is not None else None,
             cartridge_usage=self._get_prop_value("cartridge_usage"),
-            fragrance_name=self._get_prop_value("fragrance_name"),
+            fragrance_name=self._get_fragrance_name_resolved(),
             
             pump_life_time=self._get_prop_value("pump_life_time"),
             

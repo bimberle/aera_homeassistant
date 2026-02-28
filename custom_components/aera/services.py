@@ -46,8 +46,19 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for Aera integration."""
 
     async def _get_devices_from_call(call: ServiceCall) -> list["AeraDevice"]:
-        """Get devices from service call."""
-        entity_ids = call.data.get("entity_id", [])
+        """Get devices from service call.
+        
+        Supports both target-based calls (entity_ids via call.target) 
+        and field-based calls (entity_id in call.data) for backwards compatibility.
+        """
+        # First try to get from target (new pattern)
+        entity_ids = []
+        if hasattr(call, "target") and call.target and call.target.get("entity_id"):
+            entity_ids = call.target.get("entity_id", [])
+        # Fallback to data (old pattern / backwards compatibility)
+        if not entity_ids:
+            entity_ids = call.data.get("entity_id", [])
+        
         if isinstance(entity_ids, str):
             entity_ids = [entity_ids]
 

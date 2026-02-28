@@ -299,11 +299,14 @@ class AylaApi:
         for item in data:
             device_data = item.get("device", {})
             dsn = device_data.get("dsn", "")
+            device_key = device_data.get("key", 0)
             device_meta = metadata.get(dsn)
+            
+            _LOGGER.debug(f"Device {dsn}: key={device_key}")
             
             devices.append(AeraDevice(
                 dsn=dsn,
-                key=device_data.get("key", 0),  # Numeric device key for schedule API
+                key=device_key,  # Numeric device key for schedule API
                 product_name=device_data.get("product_name", ""),
                 model=device_data.get("model", ""),
                 device_type=device_data.get("device_type", ""),

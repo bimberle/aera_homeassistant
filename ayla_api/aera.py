@@ -202,10 +202,11 @@ class AeraDevice:
         # Parse properties into state
         self._state = self._parse_state()
         
-        # Load schedules if device has a key
-        if self._key:
+        # Load schedules if device has a valid key (key > 0)
+        if self._key and self._key > 0:
             try:
                 self._schedules = await self._api.get_schedules(self._key)
+                _LOGGER.debug(f"Loaded {len(self._schedules)} schedules for {self._dsn}")
             except Exception as e:
                 _LOGGER.warning(f"Failed to load schedules for {self._dsn}: {e}")
                 # Keep existing schedules on error

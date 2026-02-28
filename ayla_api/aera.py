@@ -441,9 +441,9 @@ class AeraDevice:
                     at_start=True,
                     at_end=False,
                 ),
-                # Set intensity at start
+                # Set scheduled intensity at start (uses set_intensity_sched, not set_intensity_manual)
                 AylaScheduleAction(
-                    name="set_intensity_manual",
+                    name="set_intensity_sched",
                     base_type="integer",
                     value=str(intensity),
                     at_start=True,

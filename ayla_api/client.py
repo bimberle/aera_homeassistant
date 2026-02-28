@@ -692,7 +692,8 @@ class AylaApi:
         
         payload = {"schedule": schedule.to_dict()}
         
-        _LOGGER.debug(f"Updating schedule {schedule.key}")
+        _LOGGER.debug(f"Updating schedule {schedule.key} with payload: {payload}")
+        _LOGGER.debug(f"Request URL: {url}")
         
         async with session.put(url, json=payload, headers=self._get_headers()) as resp:
             if resp.status not in (200, 201):

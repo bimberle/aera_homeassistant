@@ -474,7 +474,10 @@ class AeraDevice:
         active: bool = None,
     ) -> AylaSchedule:
         """
-        Update an existing schedule.
+        Update an existing schedule by deleting and recreating it.
+        
+        Note: The Ayla API's PUT endpoint for schedules doesn't work reliably,
+        so we delete and recreate the schedule instead.
         
         Args:
             schedule_key: The schedule key to update
@@ -486,44 +489,60 @@ class AeraDevice:
             active: New active state (optional)
             
         Returns:
-            Updated AylaSchedule.
+            New AylaSchedule with updated values.
         """
         # First fetch the existing schedule
         schedules = await self.get_schedules()
-        schedule = None
+        old_schedule = None
         for s in schedules:
             if s.key == schedule_key:
-                schedule = s
+                old_schedule = s
                 break
         
-        if not schedule:
+        if not old_schedule:
             raise AylaApiError(f"Schedule {schedule_key} not found")
         
-        # Update fields
-        if name is not None:
-            schedule.display_name = name
-        if start_time is not None:
-            schedule.start_time_each_day = f"{start_time}:00" if len(start_time) == 5 else start_time
-        if end_time is not None:
-            schedule.end_time_each_day = f"{end_time}:00" if len(end_time) == 5 else end_time
-        if days is not None:
-            schedule.days_of_week = days
-        if active is not None:
-            schedule.active = active
+        # Get current values
+        current_name = old_schedule.display_name
+        current_start = old_schedule.start_time_each_day[:5]  # HH:MM
+        current_end = old_schedule.end_time_each_day[:5]      # HH:MM
+        current_days = old_schedule.days_of_week
+        current_active = old_schedule.active
+        current_intensity = 5  # Default
         
-        # Update the schedule itself
-        updated = await self._api.update_schedule(schedule)
+        # Find intensity from actions
+        for action in old_schedule.actions:
+            if action.name == "set_intensity_manual":
+                try:
+                    current_intensity = int(action.value)
+                except:
+                    pass
+                break
         
-        # Update intensity action if specified
-        if intensity is not None:
-            for action in schedule.actions:
-                if action.name == "set_intensity_manual" and action.key:
-                    action.value = str(intensity)
-                    await self._api.update_schedule_action(action)
-                    break
+        # Apply updates
+        new_name = name if name is not None else current_name
+        new_start = start_time if start_time is not None else current_start
+        new_end = end_time if end_time is not None else current_end
+        new_days = days if days is not None else current_days
+        new_active = active if active is not None else current_active
+        new_intensity = intensity if intensity is not None else current_intensity
         
-        _LOGGER.info(f"Updated schedule {schedule_key} for device {self._dsn}")
-        return updated
+        # Delete old schedule
+        await self.delete_schedule(schedule_key)
+        
+        # Create new schedule with updated values
+        new_schedule = await self.create_schedule(
+            name=new_name,
+            start_time=new_start,
+            end_time=new_end,
+            days=new_days,
+            intensity=new_intensity,
+            power_on=True,
+            active=new_active,
+        )
+        
+        _LOGGER.info(f"Updated schedule {schedule_key} -> {new_schedule.key} for device {self._dsn}")
+        return new_schedule
     
     async def delete_schedule(self, schedule_key: int) -> bool:
         """

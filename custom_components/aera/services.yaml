@@ -1,11 +1,15 @@
 start_session:
   name: Start Session
   description: Start a timed fragrance session.
-  target:
-    entity:
-      integration: aera
-      domain: fan
   fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
     duration:
       name: Duration
       description: Session duration
@@ -23,19 +27,77 @@ start_session:
 stop_session:
   name: Stop Session
   description: Stop the current fragrance session.
-  target:
-    entity:
-      integration: aera
-      domain: fan
+  fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
+
+turn_on:
+  name: Turn On
+  description: Turn the diffuser on.
+  fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
+
+turn_off:
+  name: Turn Off
+  description: Turn the diffuser off.
+  fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
+
+set_intensity:
+  name: Set Intensity
+  description: Set the fragrance intensity level (1-10).
+  fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
+    intensity:
+      name: Intensity
+      description: Intensity level from 1 (lowest) to 10 (highest)
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 10
+          step: 1
+          mode: slider
 
 set_fragrance:
   name: Set Fragrance
   description: Set the fragrance for aeraMini devices.
-  target:
-    entity:
-      integration: aera
-      domain: fan
   fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
     fragrance_id:
       name: Fragrance ID
       description: The 3-letter fragrance identifier (e.g., "IDG" for Indigo)
@@ -46,11 +108,15 @@ set_fragrance:
 set_room_name:
   name: Set Room Name
   description: Set the room name for an Aera device.
-  target:
-    entity:
-      integration: aera
-      domain: fan
   fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
     room_name:
       name: Room Name
       description: The name of the room where the device is located
@@ -61,19 +127,28 @@ set_room_name:
 get_schedules:
   name: Get Schedules
   description: Get all schedules for an Aera device.
-  target:
-    entity:
-      integration: aera
-      domain: fan
+  fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
 
 create_schedule:
   name: Create Schedule
   description: Create a new schedule for an Aera device.
-  target:
-    entity:
-      integration: aera
-      domain: fan
   fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
     schedule_name:
       name: Schedule Name
       description: Display name for the schedule
@@ -137,11 +212,15 @@ create_schedule:
 update_schedule:
   name: Update Schedule
   description: Update an existing schedule.
-  target:
-    entity:
-      integration: aera
-      domain: fan
   fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
     schedule_key:
       name: Schedule Key
       description: The unique key of the schedule to update
@@ -207,11 +286,15 @@ update_schedule:
 delete_schedule:
   name: Delete Schedule
   description: Delete a schedule.
-  target:
-    entity:
-      integration: aera
-      domain: fan
   fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
     schedule_key:
       name: Schedule Key
       description: The unique key of the schedule to delete
@@ -223,11 +306,15 @@ delete_schedule:
 toggle_schedule:
   name: Toggle Schedule
   description: Enable or disable a schedule.
-  target:
-    entity:
-      integration: aera
-      domain: fan
   fields:
+    entity_id:
+      name: Entity
+      description: Aera diffuser entity
+      required: true
+      selector:
+        entity:
+          integration: aera
+          domain: fan
     schedule_key:
       name: Schedule Key
       description: The unique key of the schedule to toggle

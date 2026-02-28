@@ -19,6 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_START_SESSION = "start_session"
 SERVICE_STOP_SESSION = "stop_session"
+SERVICE_TURN_ON = "turn_on"
+SERVICE_TURN_OFF = "turn_off"
+SERVICE_SET_INTENSITY = "set_intensity"
 SERVICE_SET_FRAGRANCE = "set_fragrance"
 SERVICE_SET_ROOM_NAME = "set_room_name"
 SERVICE_GET_SCHEDULES = "get_schedules"
@@ -84,6 +87,28 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for device in devices:
             await device.stop_session()
             _LOGGER.info("Stopped session on %s", device.name)
+
+    async def async_turn_on(call: ServiceCall) -> None:
+        """Turn the diffuser on."""
+        devices = await _get_devices_from_call(call)
+        for device in devices:
+            await device.turn_on()
+            _LOGGER.info("Turned on %s", device.name)
+
+    async def async_turn_off(call: ServiceCall) -> None:
+        """Turn the diffuser off."""
+        devices = await _get_devices_from_call(call)
+        for device in devices:
+            await device.turn_off()
+            _LOGGER.info("Turned off %s", device.name)
+
+    async def async_set_intensity(call: ServiceCall) -> None:
+        """Set the fragrance intensity."""
+        intensity = call.data[ATTR_INTENSITY]
+        devices = await _get_devices_from_call(call)
+        for device in devices:
+            await device.set_intensity(intensity)
+            _LOGGER.info("Set intensity to %d on %s", intensity, device.name)
 
     async def async_set_fragrance(call: ServiceCall) -> None:
         """Set fragrance on device."""
@@ -224,6 +249,42 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(
         DOMAIN,
+        SERVICE_TURN_ON,
+        async_turn_on,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_TURN_OFF,
+        async_turn_off,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_INTENSITY,
+        async_set_intensity,
+        schema=vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_ids,
+                vol.Required(ATTR_INTENSITY): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=10)
+                ),
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_SET_FRAGRANCE,
         async_set_fragrance,
         schema=vol.Schema(
@@ -332,6 +393,9 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     """Unload services."""
     hass.services.async_remove(DOMAIN, SERVICE_START_SESSION)
     hass.services.async_remove(DOMAIN, SERVICE_STOP_SESSION)
+    hass.services.async_remove(DOMAIN, SERVICE_TURN_ON)
+    hass.services.async_remove(DOMAIN, SERVICE_TURN_OFF)
+    hass.services.async_remove(DOMAIN, SERVICE_SET_INTENSITY)
     hass.services.async_remove(DOMAIN, SERVICE_SET_FRAGRANCE)
     hass.services.async_remove(DOMAIN, SERVICE_SET_ROOM_NAME)
     hass.services.async_remove(DOMAIN, SERVICE_GET_SCHEDULES)

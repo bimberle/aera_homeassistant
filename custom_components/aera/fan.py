@@ -89,6 +89,8 @@ class AeraFan(AeraEntity, FanEntity):
             attrs["session_active"] = self.device.state.session_active
             attrs["session_time_remaining"] = self.device.state.session_time_left
             attrs["intensity"] = self.device.state.intensity
+            # Mode: 0 = Manual, 1 = Scheduled
+            attrs["mode"] = "scheduled" if self.device.state.mode == 1 else "manual"
             if self.device.state.fragrance_name:
                 attrs["fragrance"] = self.device.state.fragrance_name
             if self.device.state.fill_level is not None:

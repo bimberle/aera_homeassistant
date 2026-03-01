@@ -154,3 +154,121 @@ class AeraFan(AeraEntity, FanEntity):
             await self.device.turn_on()
         
         await self.coordinator.async_request_refresh()
+
+    # Service methods for entity services
+    async def async_start_session(self, duration: str) -> None:
+        """Start a fragrance session."""
+        from .const import SESSION_DURATIONS
+        duration_minutes = SESSION_DURATIONS.get(duration)
+        if duration_minutes is None:
+            _LOGGER.error("Invalid duration: %s", duration)
+            return
+        await self.device.start_session(duration_minutes)
+        _LOGGER.info("Started %s session on %s", duration, self.device.name)
+        await self.coordinator.async_request_refresh()
+
+    async def async_stop_session(self) -> None:
+        """Stop the current session."""
+        await self.device.stop_session()
+        _LOGGER.info("Stopped session on %s", self.device.name)
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_intensity_service(self, intensity: int) -> None:
+        """Set the fragrance intensity via service."""
+        await self.device.set_intensity(intensity)
+        _LOGGER.info("Set intensity to %d on %s", intensity, self.device.name)
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_fragrance(self, fragrance_id: str) -> None:
+        """Set fragrance on device."""
+        await self.device.set_fragrance(fragrance_id)
+        _LOGGER.info("Set fragrance %s on %s", fragrance_id, self.device.name)
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_room_name(self, room_name: str) -> None:
+        """Set room name on device."""
+        await self.device.set_room_name(room_name)
+        _LOGGER.info("Set room name '%s' on %s", room_name, self.device.name)
+        await self.coordinator.async_request_refresh()
+
+    async def async_get_schedules(self) -> dict:
+        """Get all schedules for the device."""
+        schedules = await self.device.get_schedules()
+        result = [
+            {
+                "key": s.key,
+                "name": s.display_name,
+                "active": s.active,
+                "start_time": s.start_time_each_day[:5],  # HH:MM
+                "end_time": s.end_time_each_day[:5],      # HH:MM
+                "days": s.days_of_week,
+                "actions": [
+                    {"name": a.name, "value": a.value}
+                    for a in s.actions
+                ],
+            }
+            for s in schedules
+        ]
+        _LOGGER.info("Got %d schedules for %s", len(schedules), self.device.name)
+        return {"schedules": result}
+
+    async def async_create_schedule(
+        self,
+        schedule_name: str,
+        start_time: str = "08:00",
+        end_time: str = "22:00",
+        days: list[int] | None = None,
+        intensity: int = 5,
+        active: bool = True,
+    ) -> dict:
+        """Create a new schedule."""
+        if days is None:
+            days = [2, 3, 4, 5, 6]  # Mon-Fri
+        schedule = await self.device.create_schedule(
+            name=schedule_name,
+            start_time=start_time,
+            end_time=end_time,
+            days=days,
+            intensity=intensity,
+            active=active,
+        )
+        _LOGGER.info("Created schedule '%s' on %s", schedule_name, self.device.name)
+        await self.coordinator.async_request_refresh()
+        return {"key": schedule.key, "name": schedule.display_name}
+
+    async def async_update_schedule(
+        self,
+        schedule_key: int,
+        schedule_name: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        days: list[int] | None = None,
+        intensity: int | None = None,
+        active: bool | None = None,
+    ) -> dict:
+        """Update an existing schedule."""
+        schedule = await self.device.update_schedule(
+            schedule_key=schedule_key,
+            name=schedule_name,
+            start_time=start_time,
+            end_time=end_time,
+            days=days,
+            intensity=intensity,
+            active=active,
+        )
+        _LOGGER.info("Updated schedule %d on %s", schedule_key, self.device.name)
+        await self.coordinator.async_request_refresh()
+        return {"key": schedule.key, "name": schedule.display_name}
+
+    async def async_delete_schedule(self, schedule_key: int) -> None:
+        """Delete a schedule."""
+        await self.device.delete_schedule(schedule_key)
+        _LOGGER.info("Deleted schedule %d on %s", schedule_key, self.device.name)
+        await self.coordinator.async_request_refresh()
+
+    async def async_toggle_schedule(self, schedule_key: int, active: bool) -> dict:
+        """Enable or disable a schedule."""
+        schedule = await self.device.toggle_schedule(schedule_key, active)
+        _LOGGER.info("Toggled schedule %d to %s on %s", schedule_key, active, self.device.name)
+        await self.coordinator.async_request_refresh()
+        return {"key": schedule.key, "active": schedule.active}

@@ -28,22 +28,6 @@ stop_session:
       integration: aera
       domain: fan
 
-turn_on:
-  name: Turn On
-  description: Turn the diffuser on.
-  target:
-    entity:
-      integration: aera
-      domain: fan
-
-turn_off:
-  name: Turn Off
-  description: Turn the diffuser off.
-  target:
-    entity:
-      integration: aera
-      domain: fan
-
 set_intensity:
   name: Set Intensity
   description: Set the fragrance intensity level (1-10).

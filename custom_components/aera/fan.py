@@ -14,7 +14,7 @@ from homeassistant.util.percentage import (
     ranged_value_to_percentage,
 )
 
-from .const import DOMAIN, INTENSITY_MAX, INTENSITY_MIN
+from .const import DOMAIN, INTENSITY_MIN
 from .coordinator import AeraCoordinator
 from .entity import AeraEntity
 
@@ -22,8 +22,6 @@ if TYPE_CHECKING:
     from .ayla_api import AeraDevice
 
 _LOGGER = logging.getLogger(__name__)
-
-INTENSITY_RANGE = (INTENSITY_MIN, INTENSITY_MAX)
 
 
 async def async_setup_entry(
@@ -49,7 +47,6 @@ class AeraFan(AeraEntity, FanEntity):
         | FanEntityFeature.TURN_ON 
         | FanEntityFeature.TURN_OFF
     )
-    _attr_speed_count = INTENSITY_MAX - INTENSITY_MIN + 1
 
     def __init__(
         self,
@@ -59,6 +56,16 @@ class AeraFan(AeraEntity, FanEntity):
         """Initialize the fan."""
         super().__init__(coordinator, device)
         self._attr_unique_id = f"{device.dsn}_fan"
+
+    @property
+    def _intensity_range(self) -> tuple[int, int]:
+        """Return the intensity range for this device."""
+        return (INTENSITY_MIN, self.device.max_intensity)
+
+    @property
+    def speed_count(self) -> int:
+        """Return the number of speeds supported."""
+        return self.device.max_intensity - INTENSITY_MIN + 1
 
     @property
     def is_on(self) -> bool | None:
@@ -73,7 +80,7 @@ class AeraFan(AeraEntity, FanEntity):
         if self.device.state is None or not self.device.state.power_on:
             return 0
         return ranged_value_to_percentage(
-            INTENSITY_RANGE, self.device.state.intensity
+            self._intensity_range, self.device.state.intensity
         )
 
     @property
@@ -88,6 +95,7 @@ class AeraFan(AeraEntity, FanEntity):
             "room_name": self.device.room_name,
             "dsn": self.device.dsn,
             "connection_status": self.device.connection_status,
+            "max_intensity": self.device.max_intensity,
         }
         if self.device.state:
             attrs["session_active"] = self.device.state.session_active
@@ -128,7 +136,7 @@ class AeraFan(AeraEntity, FanEntity):
         """Turn on the diffuser."""
         if percentage is not None:
             intensity = math.ceil(
-                percentage_to_ranged_value(INTENSITY_RANGE, percentage)
+                percentage_to_ranged_value(self._intensity_range, percentage)
             )
             await self.device.set_intensity(intensity)
         await self.device.turn_on()
@@ -146,7 +154,7 @@ class AeraFan(AeraEntity, FanEntity):
             return
 
         intensity = math.ceil(
-            percentage_to_ranged_value(INTENSITY_RANGE, percentage)
+            percentage_to_ranged_value(self._intensity_range, percentage)
         )
         await self.device.set_intensity(intensity)
         

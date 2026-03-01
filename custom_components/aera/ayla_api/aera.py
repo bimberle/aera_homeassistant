@@ -65,6 +65,7 @@ class AeraDeviceState:
     intensity: int
     intensity_manual: int
     intensity_scheduled: Optional[int]
+    max_intensity: int = 10  # aeraMini=5, aera31=10
     
     # Mode
     mode: AeraMode
@@ -157,6 +158,14 @@ class AeraDevice:
     def model(self) -> str:
         """Device model."""
         return self._device_info.get("oem_model", "Unknown")
+    
+    @property
+    def max_intensity(self) -> int:
+        """Maximum intensity level (aeraMini=5, aera31=10)."""
+        model = self.model.lower()
+        if "mini" in model:
+            return 5
+        return 10
     
     @property
     def connection_status(self) -> str:
@@ -254,6 +263,7 @@ class AeraDevice:
             intensity=self._get_prop_value("intensity_state", 0),
             intensity_manual=self._get_prop_value("set_intensity_manual", 5),
             intensity_scheduled=self._get_prop_value("set_intensity_sched"),
+            max_intensity=self.max_intensity,
             
             mode=AeraMode(self._get_prop_value("mode_state", 0)),
             
@@ -292,13 +302,14 @@ class AeraDevice:
         Set the fragrance intensity level.
         
         Args:
-            level: Intensity level 1-10
+            level: Intensity level 1-5 (aeraMini) or 1-10 (aera31)
             
         Returns:
             True if successful
         """
-        if not 1 <= level <= 10:
-            raise ValueError("Intensity must be between 1 and 10")
+        max_level = self.max_intensity
+        if not 1 <= level <= max_level:
+            raise ValueError(f"Intensity must be between 1 and {max_level} for this device")
         
         _LOGGER.info(f"Setting intensity to {level} for device {self._dsn}")
         result = await self._api.set_property(self._dsn, "set_intensity_manual", level)

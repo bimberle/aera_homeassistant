@@ -119,18 +119,28 @@ class AeraFan(AeraEntity, FanEntity):
         
         # Add schedules
         if self.device.schedules:
-            attrs["schedules"] = [
-                {
+            attrs["schedules"] = []
+            for s in self.device.schedules:
+                # Extract intensity from actions
+                intensity = None
+                for a in s.actions:
+                    if a.name in ("set_intensity_sched", "set_intensity_manual"):
+                        try:
+                            intensity = int(a.value)
+                        except (ValueError, TypeError):
+                            pass
+                        break
+                
+                attrs["schedules"].append({
                     "key": s.key,
                     "name": s.display_name,
                     "active": s.active,
                     "start_time": s.start_time_each_day[:5],  # HH:MM
                     "end_time": s.end_time_each_day[:5],      # HH:MM
                     "days": s.days_of_week,
+                    "intensity": intensity,
                     "actions": [{"name": a.name, "value": a.value} for a in s.actions],
-                }
-                for s in self.device.schedules
-            ]
+                })
         else:
             attrs["schedules"] = []
         
@@ -264,6 +274,10 @@ class AeraFan(AeraEntity, FanEntity):
         active: bool | None = None,
     ) -> dict:
         """Update an existing schedule."""
+        _LOGGER.debug(
+            "async_update_schedule called: schedule_key=%s (type=%s), start_time=%s, end_time=%s, days=%s, intensity=%s",
+            schedule_key, type(schedule_key).__name__, start_time, end_time, days, intensity
+        )
         schedule = await self.device.update_schedule(
             schedule_key=schedule_key,
             name=schedule_name,

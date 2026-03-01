@@ -467,9 +467,11 @@ class AeraDevice:
         start_time_full = f"{start_time}:00" if len(start_time) == 5 else start_time
         end_time_full = f"{end_time}:00" if len(end_time) == 5 else end_time
         
-        # Create unique name for API
+        # Create schedule name in Aera app format
+        # Aera app uses: "Schedule" or "Schedule {start_time}-{end_time}"
         import time
-        unique_name = f"aera_schedule_{int(time.time())}"
+        # Use a unique internal name but keep display_name clean
+        unique_name = f"schedule_{int(time.time())}"
         
         schedule = AylaSchedule(
             name=unique_name,
@@ -487,7 +489,7 @@ class AeraDevice:
                     at_start=True,
                     at_end=False,
                 ),
-                # Set scheduled intensity at start (uses set_intensity_sched, not set_intensity_manual)
+                # Set scheduled intensity at start
                 AylaScheduleAction(
                     name="set_intensity_sched",
                     base_type="integer",
@@ -506,7 +508,8 @@ class AeraDevice:
             ]
         )
         
-        _LOGGER.info(f"Creating schedule '{name}' for device {self._dsn} (key={self._key})")
+        _LOGGER.info(f"Creating schedule '{name}' with intensity={intensity} for device {self._dsn} (key={self._key})")
+        _LOGGER.debug(f"Schedule actions: {[(a.name, a.value) for a in schedule.actions]}")
         return await self._api.create_schedule(self._key, schedule)
     
     async def update_schedule(
@@ -539,6 +542,8 @@ class AeraDevice:
         """
         # First fetch the existing schedule
         schedules = await self.get_schedules()
+        _LOGGER.debug(f"update_schedule: Looking for schedule_key={schedule_key} (type={type(schedule_key).__name__})")
+        _LOGGER.debug(f"update_schedule: Available schedules: {[(s.key, type(s.key).__name__, s.display_name) for s in schedules]}")
         old_schedule = None
         for s in schedules:
             if s.key == schedule_key:
@@ -546,7 +551,7 @@ class AeraDevice:
                 break
         
         if not old_schedule:
-            raise AylaApiError(f"Schedule {schedule_key} not found")
+            raise AylaApiError(f"Schedule {schedule_key} not found. Available keys: {[s.key for s in schedules]}")
         
         # Get current values
         current_name = old_schedule.display_name
@@ -556,9 +561,9 @@ class AeraDevice:
         current_active = old_schedule.active
         current_intensity = 5  # Default
         
-        # Find intensity from actions
+        # Find intensity from actions (check both possible action names)
         for action in old_schedule.actions:
-            if action.name == "set_intensity_manual":
+            if action.name in ("set_intensity_sched", "set_intensity_manual"):
                 try:
                     current_intensity = int(action.value)
                 except:

@@ -55,7 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Set up services if this is the first entry
     if len(hass.data[DOMAIN]) == 1:
-        await async_setup_services(hass)
+        async_setup_services(hass)  # No await - decorated with @callback
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

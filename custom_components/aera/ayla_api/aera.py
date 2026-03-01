@@ -164,10 +164,27 @@ class AeraDevice:
     @property
     def max_intensity(self) -> int:
         """Maximum intensity level (aeraMini=5, aera31=10)."""
-        model = self.model.lower()
-        if "mini" in model:
+        # Check oem_model first (may contain 'mini')
+        oem_model = self._device_info.get("oem_model", "").lower()
+        if "mini" in oem_model:
             return 5
-        return 10
+        
+        # Check model field (hardware identifier)
+        # AY008ESP1 = aeraMini, other models (aera31) have different identifiers
+        model = self._device_info.get("model", "").lower()
+        if "ay008" in model:
+            return 5
+        
+        # Check if device has cartridge_present property (aera31 has it, aeraMini doesn't)
+        if self._properties:
+            has_cartridge = any(
+                p.get("property", {}).get("name") == "cartridge_present" 
+                for p in self._properties
+            )
+            if not has_cartridge:
+                return 5  # aeraMini has no cartridge sensor
+        
+        return 10  # Default for aera31
     
     @property
     def connection_status(self) -> str:

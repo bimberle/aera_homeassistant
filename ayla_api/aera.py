@@ -170,21 +170,12 @@ class AeraDevice:
             return 5
         
         # Check model field (hardware identifier)
-        # AY008ESP1 = aeraMini, other models (aera31) have different identifiers
+        # AY008ESP1 = aeraMini, other models have different identifiers
         model = self._device_info.get("model", "").lower()
         if "ay008" in model:
             return 5
         
-        # Check if device has cartridge_present property (aera31 has it, aeraMini doesn't)
-        if self._properties:
-            has_cartridge = any(
-                p.get("property", {}).get("name") == "cartridge_present" 
-                for p in self._properties
-            )
-            if not has_cartridge:
-                return 5  # aeraMini has no cartridge sensor
-        
-        return 10  # Default for aera31
+        return 10  # Default for aera31 and other models
     
     @property
     def connection_status(self) -> str:

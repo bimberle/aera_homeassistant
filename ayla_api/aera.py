@@ -65,7 +65,6 @@ class AeraDeviceState:
     intensity: int
     intensity_manual: int
     intensity_scheduled: Optional[int]
-    max_intensity: int = 10  # aeraMini=5, aera31=10
     
     # Mode
     mode: AeraMode
@@ -73,6 +72,9 @@ class AeraDeviceState:
     # Session
     session_active: bool
     session_time_left: int  # minutes remaining
+    
+    # Fields with defaults must come last
+    max_intensity: int = 10  # aeraMini=5, aera31=10
     session_length: int = 0  # configured session length in minutes
     
     # Cartridge (only for aera31 and similar)

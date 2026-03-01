@@ -91,22 +91,31 @@ class AeraFan(AeraEntity, FanEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
+        # Determine device type based on max_intensity
+        device_type = "aeraMini" if self.device.max_intensity == 5 else "aera31"
+        
         attrs = {
             "room_name": self.device.room_name,
             "dsn": self.device.dsn,
             "connection_status": self.device.connection_status,
             "max_intensity": self.device.max_intensity,
+            "device_type": device_type,
+            "model": self.device.model,
         }
         if self.device.state:
             attrs["session_active"] = self.device.state.session_active
             attrs["session_time_remaining"] = self.device.state.session_time_left
             attrs["intensity"] = self.device.state.intensity
+            attrs["firmware_version"] = self.device.state.firmware_version
             # Mode: 0 = Manual, 1 = Scheduled
             attrs["mode"] = "scheduled" if self.device.state.mode == 1 else "manual"
             if self.device.state.fragrance_name:
                 attrs["fragrance"] = self.device.state.fragrance_name
             if self.device.state.fill_level is not None:
                 attrs["fill_level"] = self.device.state.fill_level
+            # aeraMini specific
+            if self.device.state.pump_life_time is not None:
+                attrs["pump_life_time"] = self.device.state.pump_life_time
         
         # Add schedules
         if self.device.schedules:

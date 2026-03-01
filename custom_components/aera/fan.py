@@ -44,7 +44,11 @@ class AeraFan(AeraEntity, FanEntity):
     """Representation of an Aera diffuser as a fan."""
 
     _attr_name = None  # Use device name
-    _attr_supported_features = FanEntityFeature.SET_SPEED
+    _attr_supported_features = (
+        FanEntityFeature.SET_SPEED 
+        | FanEntityFeature.TURN_ON 
+        | FanEntityFeature.TURN_OFF
+    )
     _attr_speed_count = INTENSITY_MAX - INTENSITY_MIN + 1
 
     def __init__(

@@ -3,6 +3,7 @@ start_session:
   description: Start a timed fragrance session.
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     duration:
@@ -24,6 +25,7 @@ stop_session:
   description: Stop the current fragrance session.
   target:
     entity:
+      integration: aera
       domain: fan
 
 turn_on:
@@ -31,6 +33,7 @@ turn_on:
   description: Turn the diffuser on.
   target:
     entity:
+      integration: aera
       domain: fan
 
 turn_off:
@@ -38,6 +41,7 @@ turn_off:
   description: Turn the diffuser off.
   target:
     entity:
+      integration: aera
       domain: fan
 
 set_intensity:
@@ -45,6 +49,7 @@ set_intensity:
   description: Set the fragrance intensity level (1-10).
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     intensity:
@@ -63,6 +68,7 @@ set_fragrance:
   description: Set the fragrance for aeraMini devices.
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     fragrance_id:
@@ -77,6 +83,7 @@ set_room_name:
   description: Set the room name for an Aera device.
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     room_name:
@@ -91,6 +98,7 @@ get_schedules:
   description: Get all schedules for an Aera device.
   target:
     entity:
+      integration: aera
       domain: fan
 
 create_schedule:
@@ -98,6 +106,7 @@ create_schedule:
   description: Create a new schedule for an Aera device.
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     schedule_name:
@@ -165,6 +174,7 @@ update_schedule:
   description: Update an existing schedule.
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     schedule_key:
@@ -234,6 +244,7 @@ delete_schedule:
   description: Delete a schedule.
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     schedule_key:
@@ -249,6 +260,7 @@ toggle_schedule:
   description: Enable or disable a schedule.
   target:
     entity:
+      integration: aera
       domain: fan
   fields:
     schedule_key:

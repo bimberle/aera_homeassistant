@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 from enum import IntEnum
 import logging
+import time
 
 from .client import AylaApi, AylaApiError, AylaSchedule, AylaScheduleAction
 from .fragrances import get_fragrance_name
@@ -118,6 +119,8 @@ class AeraDevice:
         self._room_name: str = ""
         self._ordered_position: int = 0
         self._schedules: List[AylaSchedule] = []
+        self._schedules_last_update: float = 0  # Timestamp of last schedule fetch
+        self._schedules_cache_ttl: int = 300  # 5 minutes cache TTL
     
     @property
     def dsn(self) -> str:
@@ -202,6 +205,11 @@ class AeraDevice:
         """Cached schedules for this device (call update() first)."""
         return self._schedules
     
+    def invalidate_schedule_cache(self) -> None:
+        """Invalidate the schedule cache to force reload on next update."""
+        self._schedules_last_update = 0
+        _LOGGER.debug(f"Schedule cache invalidated for {self._dsn}")
+    
     async def update(self) -> AeraDeviceState:
         """
         Fetch the latest state from the device.
@@ -228,13 +236,20 @@ class AeraDevice:
         self._state = self._parse_state()
         
         # Load schedules if device has a valid key (key > 0)
+        # Only reload if cache is stale (older than _schedules_cache_ttl seconds)
         if self._key and self._key > 0:
-            try:
-                self._schedules = await self._api.get_schedules(self._key)
-                _LOGGER.debug(f"Loaded {len(self._schedules)} schedules for {self._dsn}")
-            except Exception as e:
-                _LOGGER.warning(f"Failed to load schedules for {self._dsn}: {e}")
-                # Keep existing schedules on error
+            now = time.time()
+            cache_age = now - self._schedules_last_update
+            if cache_age >= self._schedules_cache_ttl:
+                try:
+                    self._schedules = await self._api.get_schedules(self._key)
+                    self._schedules_last_update = now
+                    _LOGGER.debug(f"Loaded {len(self._schedules)} schedules for {self._dsn} (cache refreshed)")
+                except Exception as e:
+                    _LOGGER.warning(f"Failed to load schedules for {self._dsn}: {e}")
+                    # Keep existing schedules on error
+            else:
+                _LOGGER.debug(f"Using cached schedules for {self._dsn} (age: {cache_age:.0f}s)")
         
         return self._state
     
@@ -510,7 +525,9 @@ class AeraDevice:
         
         _LOGGER.info(f"Creating schedule '{name}' with intensity={intensity} for device {self._dsn} (key={self._key})")
         _LOGGER.debug(f"Schedule actions: {[(a.name, a.value) for a in schedule.actions]}")
-        return await self._api.create_schedule(self._key, schedule)
+        result = await self._api.create_schedule(self._key, schedule)
+        self.invalidate_schedule_cache()  # Force reload on next update
+        return result
     
     async def update_schedule(
         self,
@@ -606,7 +623,9 @@ class AeraDevice:
             True if successful.
         """
         _LOGGER.info(f"Deleting schedule {schedule_key} for device {self._dsn}")
-        return await self._api.delete_schedule(schedule_key)
+        result = await self._api.delete_schedule(schedule_key)
+        self.invalidate_schedule_cache()  # Force reload on next update
+        return result
     
     async def toggle_schedule(self, schedule_key: int, active: bool) -> AylaSchedule:
         """

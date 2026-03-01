@@ -19,3 +19,6 @@ INTENSITY_MAX = 10
 
 # Update interval in seconds
 UPDATE_INTERVAL = 30
+
+# Schedule update interval in seconds (schedules change rarely)
+SCHEDULE_UPDATE_INTERVAL = 300  # 5 minutes

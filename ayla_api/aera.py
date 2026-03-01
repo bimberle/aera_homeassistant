@@ -71,7 +71,7 @@ class AeraDeviceState:
     
     # Session
     session_active: bool
-    session_time_left: int  # seconds
+    session_time_left: int  # minutes remaining
     session_length: int = 0  # configured session length in minutes
     
     # Cartridge (only for aera31 and similar)
@@ -334,16 +334,16 @@ class AeraDevice:
         """
         Stop the active session.
         
-        This sets session_length to 0 and turns off the device.
+        This sets session_length to 0, which stops the session timer.
+        The device stays on (useful if a schedule is active).
+        Use turn_off() to also turn off the device.
         
         Returns:
             True if successful
         """
         _LOGGER.info(f"Stopping session for device {self._dsn}")
         # Set session length to 0 to stop the session timer
-        await self._api.set_property(self._dsn, "set_session_length", 0)
-        # Turn off the device
-        result = await self._api.set_property(self._dsn, "set_power_state", 0)
+        result = await self._api.set_property(self._dsn, "set_session_length", 0)
         if result:
             await self.update()
         return result

@@ -21,4 +21,4 @@ INTENSITY_MAX = 10
 UPDATE_INTERVAL = 30
 
 # Schedule update interval in seconds (schedules change rarely)
-SCHEDULE_UPDATE_INTERVAL = 300  # 5 minutes
+SCHEDULE_UPDATE_INTERVAL = 86400  # 24 hours

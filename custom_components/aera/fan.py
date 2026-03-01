@@ -239,6 +239,12 @@ class AeraFan(AeraEntity, FanEntity):
         _LOGGER.info("Got %d schedules for %s", len(schedules), self.device.name)
         return {"schedules": result}
 
+    async def async_refresh_schedules(self) -> None:
+        """Invalidate schedule cache and reload schedules."""
+        _LOGGER.info("Refreshing schedules for %s", self.device.name)
+        self.device.invalidate_schedule_cache()
+        await self.coordinator.async_request_refresh()
+
     async def async_create_schedule(
         self,
         schedule_name: str,

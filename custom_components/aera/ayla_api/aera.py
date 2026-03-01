@@ -120,7 +120,7 @@ class AeraDevice:
         self._ordered_position: int = 0
         self._schedules: List[AylaSchedule] = []
         self._schedules_last_update: float = 0  # Timestamp of last schedule fetch
-        self._schedules_cache_ttl: int = 300  # 5 minutes cache TTL
+        self._schedules_cache_ttl: int = 86400  # 24 hours cache TTL
     
     @property
     def dsn(self) -> str:

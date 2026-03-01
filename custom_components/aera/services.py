@@ -24,6 +24,7 @@ SERVICE_SET_INTENSITY = "set_intensity"
 SERVICE_SET_FRAGRANCE = "set_fragrance"
 SERVICE_SET_ROOM_NAME = "set_room_name"
 SERVICE_GET_SCHEDULES = "get_schedules"
+SERVICE_REFRESH_SCHEDULES = "refresh_schedules"
 SERVICE_CREATE_SCHEDULE = "create_schedule"
 SERVICE_UPDATE_SCHEDULE = "update_schedule"
 SERVICE_DELETE_SCHEDULE = "delete_schedule"
@@ -117,6 +118,16 @@ def async_setup_services(hass: HomeAssistant) -> None:
         supports_response=SupportsResponse.ONLY,
     )
 
+    # Refresh Schedules (invalidate cache and reload)
+    service.async_register_platform_entity_service(
+        hass,
+        DOMAIN,
+        SERVICE_REFRESH_SCHEDULES,
+        entity_domain=FAN_DOMAIN,
+        schema=None,
+        func="async_refresh_schedules",
+    )
+
     # Create Schedule
     service.async_register_platform_entity_service(
         hass,
@@ -194,6 +205,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     hass.services.async_remove(DOMAIN, SERVICE_SET_FRAGRANCE)
     hass.services.async_remove(DOMAIN, SERVICE_SET_ROOM_NAME)
     hass.services.async_remove(DOMAIN, SERVICE_GET_SCHEDULES)
+    hass.services.async_remove(DOMAIN, SERVICE_REFRESH_SCHEDULES)
     hass.services.async_remove(DOMAIN, SERVICE_CREATE_SCHEDULE)
     hass.services.async_remove(DOMAIN, SERVICE_UPDATE_SCHEDULE)
     hass.services.async_remove(DOMAIN, SERVICE_DELETE_SCHEDULE)

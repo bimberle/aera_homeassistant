@@ -11,7 +11,7 @@ from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_platform
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.percentage import (
     percentage_to_ranged_value,
     ranged_value_to_percentage,
@@ -30,17 +30,12 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Aera fan entities."""
     coordinator: AeraCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    async_add_entities(
-        AeraFan(coordinator, device)
-        for device in coordinator.devices.values()
-    )
-
-    # Register entity services
+    # Register entity services BEFORE adding entities
     platform = entity_platform.async_get_current_platform()
 
     platform.async_register_entity_service(
@@ -127,6 +122,12 @@ async def async_setup_entry(
             vol.Required("active"): cv.boolean,
         },
         "async_toggle_schedule",
+    )
+
+    # Add entities AFTER registering services
+    async_add_entities(
+        AeraFan(coordinator, device)
+        for device in coordinator.devices.values()
     )
 
 

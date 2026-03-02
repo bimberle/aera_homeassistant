@@ -1,6 +1,8 @@
 """Services for Aera integration."""
 from __future__ import annotations
 
+import logging
+
 import voluptuous as vol
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
@@ -9,11 +11,22 @@ from homeassistant.helpers import config_validation as cv, service
 
 from .const import DOMAIN
 
+_LOGGER = logging.getLogger(__name__)
+
 
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for Aera integration."""
+    _LOGGER.debug("=== AERA async_setup_services called ===")
+    _LOGGER.info("Aera: Setting up services for domain '%s'", DOMAIN)
 
+    # Check if services.yaml exists
+    import os
+    services_yaml_path = os.path.join(os.path.dirname(__file__), "services.yaml")
+    _LOGGER.debug("Aera: Looking for services.yaml at: %s", services_yaml_path)
+    _LOGGER.debug("Aera: services.yaml exists: %s", os.path.exists(services_yaml_path))
+
+    _LOGGER.debug("Aera: Registering start_session service")
     service.async_register_platform_entity_service(
         hass,
         DOMAIN,

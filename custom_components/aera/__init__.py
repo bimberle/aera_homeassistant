@@ -24,7 +24,18 @@ PLATFORMS: list[Platform] = [Platform.FAN, Platform.SENSOR]
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Aera integration."""
+    _LOGGER.debug("=== AERA async_setup called ===")
+    _LOGGER.info("Aera: async_setup started, calling async_setup_services")
     async_setup_services(hass)
+    _LOGGER.info("Aera: async_setup_services completed")
+    
+    # Log registered services
+    if DOMAIN in hass.services.async_services():
+        services = list(hass.services.async_services()[DOMAIN].keys())
+        _LOGGER.info("Aera: Registered services for domain '%s': %s", DOMAIN, services)
+    else:
+        _LOGGER.warning("Aera: No services registered for domain '%s'", DOMAIN)
+    
     return True
 
 

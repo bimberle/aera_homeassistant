@@ -12,6 +12,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
 from .coordinator import AeraCoordinator
+from .services import async_setup_services
 
 if TYPE_CHECKING:
     from .ayla_api import AeraApi
@@ -23,6 +24,7 @@ PLATFORMS: list[Platform] = [Platform.FAN, Platform.SENSOR]
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Aera integration."""
+    async_setup_services(hass)
     return True
 
 

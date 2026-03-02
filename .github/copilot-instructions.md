@@ -80,3 +80,57 @@ Beim Erstellen einer neuen Version **IMMER** diese Schritte befolgen, damit HACS
 - **Integration:** https://github.com/bimberle/aera_homeassistant
 - **Card:** https://github.com/bimberle/aera-card
 - **Workspace:** `/Users/michi/Nextcloud/dev/aera.code-workspace` (beide Projekte)
+
+## WICHTIG: Service-Registrierung mit UI-Parametern
+
+Damit Service-Parameter in Home Assistant's Developer Tools > Actions UI erscheinen, reicht `async_register_platform_entity_service()` NICHT aus! 
+
+### Das Problem
+- `async_register_platform_entity_service()` registriert nur den **Handler** (die Funktion)
+- Die `services.yaml` wird bei Custom Integrations nicht automatisch für die UI geladen
+- **Ohne explizites Schema sieht man keine Parameter-Felder in der UI!**
+
+### Die Lösung: `async_set_service_schema()`
+
+Nach **JEDER** Service-Registrierung muss `async_set_service_schema()` aufgerufen werden:
+
+```python
+from homeassistant.helpers.service import async_set_service_schema
+
+# 1. Service registrieren (Handler)
+service.async_register_platform_entity_service(
+    hass, DOMAIN, "set_intensity",
+    entity_domain=FAN_DOMAIN,
+    schema={vol.Required("intensity"): vol.All(vol.Coerce(int), vol.Range(min=1, max=10))},
+    func="async_set_intensity_service",
+)
+
+# 2. UI-Schema registrieren (WICHTIG für Parameter in der UI!)
+async_set_service_schema(hass, DOMAIN, "set_intensity", {
+    "name": "Set Intensity",
+    "description": "Set the fragrance intensity level (1-10).",
+    "fields": {
+        "intensity": {
+            "name": "Intensity",
+            "description": "Intensity level from 1 to 10",
+            "required": True,
+            "selector": {"number": {"min": 1, "max": 10, "step": 1, "mode": "slider"}}
+        }
+    },
+    "target": {"entity": {"integration": "aera", "domain": "fan"}}
+})
+```
+
+### Verfügbare Selectors
+- `{"number": {"min": 1, "max": 10, "mode": "slider"}}` - Slider
+- `{"number": {"mode": "box"}}` - Eingabefeld
+- `{"text": {}}` - Textfeld
+- `{"boolean": {}}` - Toggle
+- `{"time": {}}` - Zeitauswahl
+- `{"select": {"options": [{"label": "2h", "value": "2h"}, ...]}}` - Dropdown
+- `{"select": {"multiple": True, "options": [...]}}` - Multi-Select
+
+### Merke
+- `services.yaml` ist für Custom Integrations optional (wird nicht automatisch geladen)
+- `async_set_service_schema()` ist der Schlüssel für UI-Parameter!
+- Wurde in v1.5.28 implementiert nach langer Debugging-Session

@@ -5,9 +5,12 @@ import logging
 import math
 from typing import TYPE_CHECKING, Any
 
+import voluptuous as vol
+
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.percentage import (
     percentage_to_ranged_value,
@@ -35,6 +38,95 @@ async def async_setup_entry(
     async_add_entities(
         AeraFan(coordinator, device)
         for device in coordinator.devices.values()
+    )
+
+    # Register entity services
+    platform = entity_platform.async_get_current_platform()
+
+    platform.async_register_entity_service(
+        "start_session",
+        {vol.Required("duration"): vol.In(["2h", "4h", "8h"])},
+        "async_start_session",
+    )
+
+    platform.async_register_entity_service(
+        "stop_session",
+        None,
+        "async_stop_session",
+    )
+
+    platform.async_register_entity_service(
+        "set_intensity",
+        {vol.Required("intensity"): vol.All(vol.Coerce(int), vol.Range(min=1, max=10))},
+        "async_set_intensity_service",
+    )
+
+    platform.async_register_entity_service(
+        "set_fragrance",
+        {vol.Required("fragrance_id"): cv.string},
+        "async_set_fragrance",
+    )
+
+    platform.async_register_entity_service(
+        "set_room_name",
+        {vol.Required("room_name"): cv.string},
+        "async_set_room_name",
+    )
+
+    platform.async_register_entity_service(
+        "refresh_schedules",
+        None,
+        "async_refresh_schedules",
+    )
+
+    platform.async_register_entity_service(
+        "create_schedule",
+        {
+            vol.Required("schedule_name"): cv.string,
+            vol.Optional("start_time", default="08:00"): cv.string,
+            vol.Optional("end_time", default="22:00"): cv.string,
+            vol.Optional("days", default=[2, 3, 4, 5, 6]): vol.All(
+                cv.ensure_list, [vol.In([1, 2, 3, 4, 5, 6, 7])]
+            ),
+            vol.Optional("intensity", default=5): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=10)
+            ),
+            vol.Optional("active", default=True): cv.boolean,
+        },
+        "async_create_schedule",
+    )
+
+    platform.async_register_entity_service(
+        "update_schedule",
+        {
+            vol.Required("schedule_key"): vol.Coerce(int),
+            vol.Optional("schedule_name"): cv.string,
+            vol.Optional("start_time"): cv.string,
+            vol.Optional("end_time"): cv.string,
+            vol.Optional("days"): vol.All(
+                cv.ensure_list, [vol.In([1, 2, 3, 4, 5, 6, 7])]
+            ),
+            vol.Optional("intensity"): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=10)
+            ),
+            vol.Optional("active"): cv.boolean,
+        },
+        "async_update_schedule",
+    )
+
+    platform.async_register_entity_service(
+        "delete_schedule",
+        {vol.Required("schedule_key"): vol.Coerce(int)},
+        "async_delete_schedule",
+    )
+
+    platform.async_register_entity_service(
+        "toggle_schedule",
+        {
+            vol.Required("schedule_key"): vol.Coerce(int),
+            vol.Required("active"): cv.boolean,
+        },
+        "async_toggle_schedule",
     )
 
 

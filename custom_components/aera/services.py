@@ -52,6 +52,38 @@ def async_setup_services(hass: HomeAssistant) -> None:
         "target": {"entity": {"integration": "aera", "domain": "fan"}}
     })
 
+    # turn_on - Turn on the diffuser
+    service.async_register_platform_entity_service(
+        hass,
+        DOMAIN,
+        "turn_on",
+        entity_domain=FAN_DOMAIN,
+        schema=None,
+        func="async_turn_on",
+    )
+    async_set_service_schema(hass, DOMAIN, "turn_on", {
+        "name": "Turn On",
+        "description": "Turn on the Aera diffuser.",
+        "fields": {},
+        "target": {"entity": {"integration": "aera", "domain": "fan"}}
+    })
+
+    # turn_off - Turn off the diffuser
+    service.async_register_platform_entity_service(
+        hass,
+        DOMAIN,
+        "turn_off",
+        entity_domain=FAN_DOMAIN,
+        schema=None,
+        func="async_turn_off",
+    )
+    async_set_service_schema(hass, DOMAIN, "turn_off", {
+        "name": "Turn Off",
+        "description": "Turn off the Aera diffuser.",
+        "fields": {},
+        "target": {"entity": {"integration": "aera", "domain": "fan"}}
+    })
+
     # stop_session
     service.async_register_platform_entity_service(
         hass,

@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
 from .coordinator import AeraCoordinator
@@ -19,6 +20,17 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.FAN, Platform.SENSOR]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the Aera integration.
+    
+    This is called before any config entries are set up.
+    Services are registered here so the services.yaml descriptions are loaded.
+    """
+    # Register services early so the UI shows parameter descriptions
+    async_setup_services(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -53,10 +65,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Set up services if this is the first entry
-    if len(hass.data[DOMAIN]) == 1:
-        async_setup_services(hass)  # No await - decorated with @callback
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
@@ -67,9 +75,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         coordinator: AeraCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
         await coordinator.api.close()
-
-        # Unload services if this was the last entry
-        if not hass.data[DOMAIN]:
-            await async_unload_services(hass)
 
     return unload_ok

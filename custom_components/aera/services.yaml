@@ -85,6 +85,14 @@ get_schedules:
       integration: aera
       domain: fan
 
+refresh_schedules:
+  name: Refresh Schedules
+  description: Refresh schedules from the cloud (invalidate cache and reload).
+  target:
+    entity:
+      integration: aera
+      domain: fan
+
 create_schedule:
   name: Create Schedule
   description: Create a new schedule for an Aera device.

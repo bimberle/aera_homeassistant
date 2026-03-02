@@ -55,6 +55,16 @@
       "name": "Stop Session",
       "description": "Stop the current fragrance session."
     },
+    "set_intensity": {
+      "name": "Set Intensity",
+      "description": "Set the fragrance intensity level.",
+      "fields": {
+        "intensity": {
+          "name": "Intensity",
+          "description": "Intensity level from 1 (lowest) to 10 (highest)"
+        }
+      }
+    },
     "set_fragrance": {
       "name": "Set Fragrance",
       "description": "Set the fragrance for aeraMini devices.",
@@ -72,6 +82,102 @@
         "room_name": {
           "name": "Room Name",
           "description": "The name of the room where the device is located"
+        }
+      }
+    },
+    "get_schedules": {
+      "name": "Get Schedules",
+      "description": "Get all schedules for an Aera device."
+    },
+    "refresh_schedules": {
+      "name": "Refresh Schedules",
+      "description": "Refresh schedules from the cloud."
+    },
+    "create_schedule": {
+      "name": "Create Schedule",
+      "description": "Create a new schedule for an Aera device.",
+      "fields": {
+        "schedule_name": {
+          "name": "Schedule Name",
+          "description": "Display name for the schedule"
+        },
+        "start_time": {
+          "name": "Start Time",
+          "description": "Start time in HH:MM format"
+        },
+        "end_time": {
+          "name": "End Time",
+          "description": "End time in HH:MM format"
+        },
+        "days": {
+          "name": "Days",
+          "description": "Days of week (1=Sun, 2=Mon, ..., 7=Sat)"
+        },
+        "intensity": {
+          "name": "Intensity",
+          "description": "Intensity level 1-10"
+        },
+        "active": {
+          "name": "Active",
+          "description": "Whether the schedule is active"
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Update Schedule",
+      "description": "Update an existing schedule.",
+      "fields": {
+        "schedule_key": {
+          "name": "Schedule Key",
+          "description": "The schedule key to update"
+        },
+        "schedule_name": {
+          "name": "Schedule Name",
+          "description": "New display name"
+        },
+        "start_time": {
+          "name": "Start Time",
+          "description": "New start time in HH:MM format"
+        },
+        "end_time": {
+          "name": "End Time",
+          "description": "New end time in HH:MM format"
+        },
+        "days": {
+          "name": "Days",
+          "description": "New days of week"
+        },
+        "intensity": {
+          "name": "Intensity",
+          "description": "New intensity level 1-10"
+        },
+        "active": {
+          "name": "Active",
+          "description": "Whether the schedule is active"
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Delete Schedule",
+      "description": "Delete a schedule.",
+      "fields": {
+        "schedule_key": {
+          "name": "Schedule Key",
+          "description": "The schedule key to delete"
+        }
+      }
+    },
+    "toggle_schedule": {
+      "name": "Toggle Schedule",
+      "description": "Enable or disable a schedule.",
+      "fields": {
+        "schedule_key": {
+          "name": "Schedule Key",
+          "description": "The schedule key to toggle"
+        },
+        "active": {
+          "name": "Active",
+          "description": "Whether the schedule should be active"
         }
       }
     }

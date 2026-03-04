@@ -8,6 +8,7 @@ through the Ayla Networks IoT platform.
 import aiohttp
 import asyncio
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Optional, List
 import logging
@@ -187,6 +188,8 @@ class AylaApi:
         self.app_secret = app_secret
         self._auth_token: Optional[AylaAuthToken] = None
         self._session: Optional[aiohttp.ClientSession] = None
+        self._token_expiry: float = 0  # Unix timestamp when token expires
+        self._is_refreshing: bool = False  # Prevent concurrent refresh attempts
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create an aiohttp session."""
@@ -208,6 +211,19 @@ class AylaApi:
         if self._auth_token:
             headers["Authorization"] = f"auth_token {self._auth_token.access_token}"
         return headers
+    
+    def _is_token_expired(self) -> bool:
+        """Check if the current token is expired or about to expire."""
+        if not self._auth_token:
+            return True
+        # Consider token expired 5 minutes before actual expiry to be safe
+        return time.time() >= (self._token_expiry - 300)
+    
+    async def _ensure_authenticated(self) -> None:
+        """Ensure we have a valid authentication token."""
+        if self._is_token_expired():
+            _LOGGER.debug("Token expired or missing, logging in...")
+            await self.login()
     
     async def login(self) -> AylaAuthToken:
         """
@@ -255,8 +271,67 @@ class AylaApi:
             role_tags=data.get("role_tags", []),
         )
         
+        # Track when the token will expire
+        self._token_expiry = time.time() + data.get("expires_in", 86400)
+        
         _LOGGER.info("Successfully logged in to Ayla API")
         return self._auth_token
+    
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        json_data: dict = None,
+        retry_on_401: bool = True,
+    ) -> dict:
+        """
+        Make an authenticated API request with automatic re-login on 401.
+        
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE)
+            url: Full URL to request
+            json_data: Optional JSON payload for POST/PUT
+            retry_on_401: If True, retry once after re-login on 401 error
+            
+        Returns:
+            JSON response data
+            
+        Raises:
+            AylaApiError: On API errors
+            AylaAuthError: On authentication errors after retry
+        """
+        # Ensure we have a valid token before making the request
+        await self._ensure_authenticated()
+        
+        session = await self._get_session()
+        
+        kwargs = {"headers": self._get_headers()}
+        if json_data is not None:
+            kwargs["json"] = json_data
+        
+        async with session.request(method, url, **kwargs) as resp:
+            if resp.status == 401:
+                if retry_on_401 and not self._is_refreshing:
+                    # Token expired, re-login and retry once
+                    _LOGGER.info("Got 401, re-authenticating...")
+                    self._is_refreshing = True
+                    try:
+                        await self.login()
+                    finally:
+                        self._is_refreshing = False
+                    return await self._request(method, url, json_data, retry_on_401=False)
+                else:
+                    raise AylaAuthError("Authentication failed - please check credentials")
+            
+            if resp.status not in (200, 201):
+                text = await resp.text()
+                raise AylaApiError(f"API request failed: {resp.status} - {text}")
+            
+            # For DELETE requests, might return empty body
+            if resp.content_length == 0:
+                return {}
+            
+            return await resp.json()
     
     async def get_devices(self, include_metadata: bool = True) -> list[AeraDevice]:
         """
@@ -268,24 +343,11 @@ class AylaApi:
         Returns:
             List of AeraDevice objects.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/devices.json"
         
         _LOGGER.debug("Fetching devices from Ayla API")
         
-        async with session.get(url, headers=self._get_headers()) as resp:
-            if resp.status == 401:
-                # Token might be expired, try to re-login
-                await self.login()
-                return await self.get_devices(include_metadata)
-            if resp.status != 200:
-                text = await resp.text()
-                raise AylaApiError(f"Failed to get devices: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("GET", url)
         
         # Fetch metadata for room names
         metadata = {}
@@ -333,20 +395,11 @@ class AylaApi:
         Returns:
             Dictionary of property names to values.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/dsns/{dsn}/properties.json"
         
         _LOGGER.debug(f"Fetching properties for device {dsn}")
         
-        async with session.get(url, headers=self._get_headers()) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                raise AylaApiError(f"Failed to get properties: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("GET", url)
         
         properties = {}
         for item in data:
@@ -372,10 +425,6 @@ class AylaApi:
         Returns:
             True if successful.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/dsns/{dsn}/properties/{property_name}/datapoints.json"
         
         payload = {
@@ -386,10 +435,7 @@ class AylaApi:
         
         _LOGGER.debug(f"Setting {property_name}={value} for device {dsn}")
         
-        async with session.post(url, json=payload, headers=self._get_headers()) as resp:
-            if resp.status not in (200, 201):
-                text = await resp.text()
-                raise AylaApiError(f"Failed to set property: {resp.status} - {text}")
+        await self._request("POST", url, payload)
         
         _LOGGER.info(f"Successfully set {property_name}={value} for device {dsn}")
         return True
@@ -401,23 +447,17 @@ class AylaApi:
         Returns:
             Dict mapping DSN to DeviceMetadata objects.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_USER_SERVICE}/api/v1/users/data/device_data_table.json"
         
         _LOGGER.debug("Fetching device metadata from Ayla API")
         
-        async with session.get(url, headers=self._get_headers()) as resp:
-            if resp.status == 404:
+        try:
+            data = await self._request("GET", url)
+        except AylaApiError as e:
+            if "404" in str(e):
                 # No metadata exists yet
                 return {}
-            if resp.status != 200:
-                text = await resp.text()
-                raise AylaApiError(f"Failed to get device metadata: {resp.status} - {text}")
-            
-            data = await resp.json()
+            raise
         
         result = {}
         try:
@@ -455,9 +495,6 @@ class AylaApi:
         Returns:
             True if successful.
         """
-        if not self._auth_token:
-            await self.login()
-        
         # First fetch current metadata
         current_metadata = await self.get_device_metadata()
         
@@ -491,10 +528,6 @@ class AylaApi:
                 "schedule_order": [],
             })
         
-        # Update the datum
-        session = await self._get_session()
-        url = f"{AYLA_USER_SERVICE}/api/v1/users/data/device_data_table.json"
-        
         payload = {
             "datum": {
                 "key": "device_data_table",
@@ -507,17 +540,12 @@ class AylaApi:
         # Check if datum exists to decide between PUT and POST
         if current_metadata:
             # Update existing datum
-            async with session.put(url, json=payload, headers=self._get_headers()) as resp:
-                if resp.status not in (200, 201):
-                    text = await resp.text()
-                    raise AylaApiError(f"Failed to update device metadata: {resp.status} - {text}")
+            url = f"{AYLA_USER_SERVICE}/api/v1/users/data/device_data_table.json"
+            await self._request("PUT", url, payload)
         else:
             # Create new datum
             url = f"{AYLA_USER_SERVICE}/api/v1/users/data.json"
-            async with session.post(url, json=payload, headers=self._get_headers()) as resp:
-                if resp.status not in (200, 201):
-                    text = await resp.text()
-                    raise AylaApiError(f"Failed to create device metadata: {resp.status} - {text}")
+            await self._request("POST", url, payload)
         
         _LOGGER.info(f"Successfully updated metadata for device {dsn}")
         return True
@@ -536,20 +564,11 @@ class AylaApi:
         Returns:
             List of AylaSchedule objects.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{device_key}/schedules.json"
         
         _LOGGER.debug(f"Fetching schedules for device key {device_key}")
         
-        async with session.get(url, headers=self._get_headers()) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                raise AylaApiError(f"Failed to get schedules: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("GET", url)
         
         schedules = []
         for item in data:
@@ -579,20 +598,11 @@ class AylaApi:
         Returns:
             List of AylaScheduleAction objects.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule_key}/schedule_actions.json"
         
         _LOGGER.debug(f"Fetching actions for schedule {schedule_key}")
         
-        async with session.get(url, headers=self._get_headers()) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                raise AylaApiError(f"Failed to get schedule actions: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("GET", url)
         
         actions = []
         for item in data:
@@ -612,22 +622,13 @@ class AylaApi:
         Returns:
             Created AylaSchedule with server-assigned key.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/devices/{device_key}/schedules.json"
         
         payload = {"schedule": schedule.to_dict()}
         
         _LOGGER.debug(f"Creating schedule '{schedule.display_name}' for device key {device_key}")
         
-        async with session.post(url, json=payload, headers=self._get_headers()) as resp:
-            if resp.status not in (200, 201):
-                text = await resp.text()
-                raise AylaApiError(f"Failed to create schedule: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("POST", url, payload)
         
         created_schedule = AylaSchedule.from_dict(data.get("schedule", {}))
         
@@ -652,22 +653,13 @@ class AylaApi:
         Returns:
             Created AylaScheduleAction with server-assigned key.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule_key}/schedule_actions.json"
         
         payload = {"schedule_action": action.to_dict()}
         
         _LOGGER.debug(f"Creating action '{action.name}' for schedule {schedule_key}")
         
-        async with session.post(url, json=payload, headers=self._get_headers()) as resp:
-            if resp.status not in (200, 201):
-                text = await resp.text()
-                raise AylaApiError(f"Failed to create schedule action: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("POST", url, payload)
         
         return AylaScheduleAction.from_dict(data.get("schedule_action", {}))
     
@@ -684,10 +676,6 @@ class AylaApi:
         if not schedule.key:
             raise AylaApiError("Schedule key is required for update")
         
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule.key}.json"
         
         payload = {"schedule": schedule.to_dict()}
@@ -695,12 +683,7 @@ class AylaApi:
         _LOGGER.debug(f"Updating schedule {schedule.key} with payload: {payload}")
         _LOGGER.debug(f"Request URL: {url}")
         
-        async with session.put(url, json=payload, headers=self._get_headers()) as resp:
-            if resp.status not in (200, 201):
-                text = await resp.text()
-                raise AylaApiError(f"Failed to update schedule: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("PUT", url, payload)
         
         updated = AylaSchedule.from_dict(data.get("schedule", {}))
         updated.actions = schedule.actions  # Preserve actions
@@ -718,18 +701,11 @@ class AylaApi:
         Returns:
             True if successful.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/schedules/{schedule_key}.json"
         
         _LOGGER.debug(f"Deleting schedule {schedule_key}")
         
-        async with session.delete(url, headers=self._get_headers()) as resp:
-            if resp.status not in (200, 204):
-                text = await resp.text()
-                raise AylaApiError(f"Failed to delete schedule: {resp.status} - {text}")
+        await self._request("DELETE", url)
         
         _LOGGER.info(f"Deleted schedule {schedule_key}")
         return True
@@ -747,22 +723,13 @@ class AylaApi:
         if not action.key:
             raise AylaApiError("Action key is required for update")
         
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/schedule_actions/{action.key}.json"
         
         payload = {"schedule_action": action.to_dict()}
         
         _LOGGER.debug(f"Updating schedule action {action.key}")
         
-        async with session.put(url, json=payload, headers=self._get_headers()) as resp:
-            if resp.status not in (200, 201):
-                text = await resp.text()
-                raise AylaApiError(f"Failed to update schedule action: {resp.status} - {text}")
-            
-            data = await resp.json()
+        data = await self._request("PUT", url, payload)
         
         return AylaScheduleAction.from_dict(data.get("schedule_action", {}))
     
@@ -776,18 +743,11 @@ class AylaApi:
         Returns:
             True if successful.
         """
-        if not self._auth_token:
-            await self.login()
-        
-        session = await self._get_session()
         url = f"{AYLA_ADS_SERVICE}/apiv1/schedule_actions/{action_key}.json"
         
         _LOGGER.debug(f"Deleting schedule action {action_key}")
         
-        async with session.delete(url, headers=self._get_headers()) as resp:
-            if resp.status not in (200, 204):
-                text = await resp.text()
-                raise AylaApiError(f"Failed to delete schedule action: {resp.status} - {text}")
+        await self._request("DELETE", url)
         
         _LOGGER.info(f"Deleted schedule action {action_key}")
         return True

@@ -361,12 +361,13 @@ class AeraDevice:
             
         Returns:
             True if successful
+            
+        Note: This matches the Aera app behavior - only sets session_length.
+        The device will automatically turn on when a session timer is active.
         """
         _LOGGER.info(f"Starting {duration_minutes}min session for device {self._dsn}")
-        # Must turn off first, then set session length, then turn on
-        await self._api.set_property(self._dsn, "set_power_state", 0)
-        await self._api.set_property(self._dsn, "set_session_length", duration_minutes)
-        result = await self._api.set_property(self._dsn, "set_power_state", 1)
+        # Matches Aera app: only set session_length (device auto-starts)
+        result = await self._api.set_property(self._dsn, "set_session_length", duration_minutes)
         if result:
             await self.update()
         return result
@@ -456,11 +457,14 @@ class AeraDevice:
         end_time: str = "22:00",
         days: List[int] = None,
         intensity: int = 5,
-        power_on: bool = True,
         active: bool = True,
     ) -> AylaSchedule:
         """
         Create a new schedule for this device.
+        
+        This matches the Aera app behavior: schedules only control intensity,
+        not power state. The diffuser must be powered on separately (manually
+        or via Home Assistant automation).
         
         Args:
             name: Display name for the schedule
@@ -469,7 +473,6 @@ class AeraDevice:
             days: Days of week (1=Sunday, 2=Monday, ..., 7=Saturday)
                   Default is Monday-Friday [2,3,4,5,6]
             intensity: Intensity level 1-10
-            power_on: Whether to turn on at start (True) or off (False)
             active: Whether the schedule is active
             
         Returns:
@@ -483,11 +486,12 @@ class AeraDevice:
         end_time_full = f"{end_time}:00" if len(end_time) == 5 else end_time
         
         # Create schedule name in Aera app format
-        # Aera app uses: "Schedule" or "Schedule {start_time}-{end_time}"
         import time
         # Use a unique internal name but keep display_name clean
         unique_name = f"schedule_{int(time.time())}"
         
+        # Create schedule with only intensity action (matching Aera app behavior)
+        # The app does NOT set power_state actions - power is controlled separately
         schedule = AylaSchedule(
             name=unique_name,
             display_name=name,
@@ -496,29 +500,13 @@ class AeraDevice:
             end_time_each_day=end_time_full,
             days_of_week=days,
             actions=[
-                # Power on action at start
-                AylaScheduleAction(
-                    name="set_power_state",
-                    base_type="integer",
-                    value="1" if power_on else "0",
-                    at_start=True,
-                    at_end=False,
-                ),
-                # Set scheduled intensity at start
+                # Only set scheduled intensity at start (like the app does)
                 AylaScheduleAction(
                     name="set_intensity_sched",
                     base_type="integer",
                     value=str(intensity),
                     at_start=True,
                     at_end=False,
-                ),
-                # Power off action at end
-                AylaScheduleAction(
-                    name="set_power_state",
-                    base_type="integer",
-                    value="0",
-                    at_start=False,
-                    at_end=True,
                 ),
             ]
         )
@@ -605,7 +593,6 @@ class AeraDevice:
             end_time=new_end,
             days=new_days,
             intensity=new_intensity,
-            power_on=True,
             active=new_active,
         )
         
